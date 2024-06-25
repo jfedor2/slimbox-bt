@@ -1,0 +1,27 @@
+name: build
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'prj.conf'
+      - 'CMakeLists.txt'
+  workflow_call:
+defaults:
+  run:
+    shell: bash --noprofile --norc -x -e -o pipefail {0}
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        board: ["adafruit_feather_nrf52840", "seeed_xiao_nrf52840"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          docker run -v $PWD:/workdir/project -w /workdir/project nordicplayground/nrfconnect-sdk:v2.6-branch \
+            west build -b ${{ matrix.board }}
+      - uses: actions/upload-artifact@v4
+        with:
+          path: build/zephyr/*.uf2
+          name: artifact-${{ matrix.board }}
