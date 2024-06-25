@@ -13,7 +13,7 @@ The `slimbox-bt.uf2` firmware will also work with any handwired controller that 
 
 ## How to use
 
-The controller will go to sleep after 10 minutes of inactivity when connected and after 1 minute when not connected. To wake it up press the "start" button.
+The controller will go to sleep after 10 minutes of inactivity when connected and after 1 minute when not connected. To wake it up press the "start" button (the one in the top left corner on the Flatbox rev7 and wherever you wired it on handwired devices).
 
 To put the controller in pairing mode, press the "start" button for 3 seconds.
 
