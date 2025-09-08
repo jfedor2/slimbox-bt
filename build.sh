@@ -17,3 +17,6 @@ mv build-adafruit_feather_nrf52840/app/zephyr/slimbox-bt.uf2 artifacts/
 
 west build -b xiao_ble -d build-seeed_xiao_nrf52840 app
 mv build-seeed_xiao_nrf52840/app/zephyr/flatbox-rev7.uf2 artifacts/
+
+west build -b xiao_nrf54l15/nrf54l15/cpuapp -d build-seeed_xiao_nrf54l15 app -- -DBOARD_ROOT=`pwd`/app
+mv build-seeed_xiao_nrf54l15/merged.hex artifacts/flatbox-rev7-nrf54l15.hex
