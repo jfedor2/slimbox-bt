@@ -2,14 +2,13 @@
 
 _This is a work in progress._
 
-This repository contains code for wireless game controller firmware meant to run on Nordic's nRF52840 chip.
+This repository contains code for wireless game controller firmware meant to run on Nordic's nRF52840 and nRF54L15 chips.
 
-Pre-built binaries are provided for the following devices:
+The following pre-built binaries are provided:
 
-* [Slimbox BT](https://www.printables.com/model/923690-slimbox-bt): [slimbox-bt.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt.uf2)
-* [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7): [flatbox-rev7.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7.uf2)
-
-The `slimbox-bt.uf2` firmware will also work with any handwired controller that uses the [Adafruit Feather nRF52840 Express](https://www.adafruit.com/product/4062) board.
+* [slimbox-bt.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt.uf2): for the [Slimbox BT](https://www.printables.com/model/923690-slimbox-bt) or any other handwired controller using the [Adafruit Feather nRF52840 Express](https://www.adafruit.com/product/4062) board
+* [flatbox-rev7.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7.uf2): for the [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7) with a [Seeed Studio Xiao nRF52840](https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html) board
+* [flatbox-rev7-nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7-nrf54l15.hex): for the [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7) with a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
 
 ## How to use
 
@@ -23,9 +22,11 @@ To put the controller in firmware flashing mode (if that's a thing on the board 
 
 ## How to flash the firmware
 
-Assuming you're using one of the devices for which pre-built binaries are provided, to flash the firmware connect the device to your computer with a USB cable, then press the RESET button twice quickly. A USB drive should appear on your computer. The name of the drive will depend on what device you're using, on the Adafruit Feather nRF52840 Express, the drive is named "FTHR840BOOT". Download the appropriate UF2 file from the releases section (`slimbox-bt.uf2` for the Adafruit Feather nRF52840 Express) and copy it to the drive that appeared.
+Assuming you're using one of the devices that come with a UF2 bootloader and for which pre-built binaries are provided, to flash the firmware connect the device to your computer with a USB cable, then press the RESET button twice quickly. A USB drive should appear on your computer. The name of the drive will depend on what device you're using, on the Adafruit Feather nRF52840 Express, the drive is named "FTHR840BOOT". Download the appropriate UF2 file from the releases section (`slimbox-bt.uf2` for the Adafruit Feather nRF52840 Express) and copy it to the drive that appeared.
 
 If you already have some previous version of this firmware on your board, instead of pressing the RESET button twice you can hold the "start" button for 10 seconds to enter firmware flashing mode.
+
+For devices using the nRF54L15 chip that don't come with a UF2 bootloader, you will have to use OpenOCD or some other software to flash the firmware, it probably won't be as easy as copying a file to a USB drive.
 
 ## Pinout
 
