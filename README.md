@@ -54,15 +54,13 @@ SCL | home
 
 ## How to compile
 
-The easiest way to compile the firmware is to let GitHub do it for you. This repository has GitHub Actions that build the firmware, so you can just fork, make your changes, wait for the job to complete, and look for the binaries in the artifacts produced.
+The easiest way to compile the firmware is to let GitHub do it for you. This repository has GitHub Actions that build the firmware, so you can just fork, enable Actions, make your changes, wait for the job to complete, and look for the binaries in the artifacts produced.
 
-To compile it yourself, you can either follow [Nordic's setup instructions](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/installation.html) and then `west build -b adafruit_feather_nrf52840` to compile the firmware, or you can use Docker with a command like this (start from the top level of the repository or adjust the path accordingly):
+To compile it on your own machine, you can either follow [Nordic's setup instructions](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/installation.html) to prepare the build environment, or you can use Docker. Either way take a look at the [build.sh](build.sh) script. With Docker a command like this builds all existing variants (start from the top level of the repository or adjust the path accordingly):
 
 ```
-docker run --rm -v $(pwd):/workdir/project -w /workdir/project nordicplayground/nrfconnect-sdk:v2.6-branch west build -b adafruit_feather_nrf52840
+docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.4 ./build.sh vatican-cameos
 ```
-
-(Replace "adafruit\_feather\_nrf52840" with the board you're compiling for.)
 
 ## TODO
 

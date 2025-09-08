@@ -1,0 +1,10 @@
+softdevice:
+  address: 0x0
+  size: 0x26000
+# app goes here
+settings_storage:
+  address: 0xec000
+  size: 0x8000
+bootloader:
+  address: 0xf4000
+  size: 0x000c000

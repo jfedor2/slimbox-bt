@@ -1,0 +1,78 @@
+/ {
+    leds {
+        expanderreset: expander_reset {
+            gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+            label = "expander reset";
+        };
+    };
+
+    buttons {
+        compatible = "gpio-keys";
+        button0: button_0 { gpios = <&gpio0 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "D0"; };
+        button1: button_1 { gpios = <&gpio0 3 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "D1"; };
+        button2: button_2 { gpios = <&gpio0 28 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "D2"; };
+        button3: button_3 { gpios = <&gpio0 29 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "D3"; };
+        button21: button_21 { gpios = <&expander1 1 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA1"; };
+        button20: button_20 { gpios = <&expander1 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA0"; };
+        button23: button_23 { gpios = <&expander1 3 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA3"; };
+        button22: button_22 { gpios = <&expander1 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA2"; };
+        button26: button_26 { gpios = <&expander1 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA6"; };
+        button24: button_24 { gpios = <&expander1 4 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA4"; };
+        button32: button_32 { gpios = <&expander1 10 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB2"; };
+        button36: button_36 { gpios = <&expander1 14 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB6"; };
+        button35: button_35 { gpios = <&expander1 13 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB5"; };
+        button34: button_34 { gpios = <&expander1 12 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB4"; };
+        button25: button_25 { gpios = <&expander1 5 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPA5"; };
+        button33: button_33 { gpios = <&expander1 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB3"; };
+        button31: button_31 { gpios = <&expander1 9 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB1"; };
+        button30: button_30 { gpios = <&expander1 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "GPB0"; };
+    };
+
+    aliases {
+        expanderreset = &expanderreset;
+    };
+
+    chosen {
+        zephyr,console = &uart0;
+        zephyr,shell-uart = &uart0;
+        zephyr,uart-mcumgr = &uart0;
+        zephyr,bt-mon-uart = &uart0;
+        zephyr,bt-c2h-uart = &uart0;
+    };
+};
+
+&i2c1 {
+    expander1: mcp230xx@20 {
+        compatible = "microchip,mcp23017";
+        reg = <0x20>;
+        gpio-controller;
+        #gpio-cells = <2>;
+        ngpios = <16>;
+/*      int-gpios = <&gpio1 13 0>; */
+        reset-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+    };
+};
+
+&pinctrl {
+    i2c1_default {
+        group1 {
+            bias-pull-up;
+        };
+    };
+};
+
+&gpio0 {
+    sense-edge-mask = < 0xffffffff >;
+};
+
+&gpio1 {
+    sense-edge-mask = < 0xffffffff >;
+};
+
+&uart0 {
+    current-speed = <921600>;
+};
+
+&zephyr_udc0 {
+    /delete-node/ board_cdc_acm_uart;
+};
