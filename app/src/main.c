@@ -10,8 +10,12 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/printk.h>
-#include <zephyr/sys/reboot.h>
 #include <zephyr/types.h>
+
+#ifdef CONFIG_BUILD_OUTPUT_UF2
+#include <zephyr/drivers/retained_mem.h>
+#include <zephyr/sys/reboot.h>
+#endif
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
@@ -81,6 +85,10 @@ static const struct gpio_dt_spec buttons[] = {
     DT_FOREACH_CHILD(DT_PATH(buttons), GPIO_SPEC_AND_COMMA)
 };
 
+#ifdef CONFIG_BUILD_OUTPUT_UF2
+static const struct device* gpregret_dev = DEVICE_DT_GET(DT_NODELABEL(gpregret1));
+#endif
+
 BT_HIDS_DEF(hids_obj, REPORT_LEN);
 
 K_MSGQ_DEFINE(hids_queue, REPORT_LEN, HIDS_QUEUE_SIZE, 4);
@@ -137,8 +145,7 @@ static void advertising_work_fn(struct k_work* work) {
         bt_addr_le_to_str(&addr, addr_buf, BT_ADDR_LE_STR_LEN);
         LOG_INF("Directed advertising to %s started.", addr_buf);
     } else {
-        adv_param = *BT_LE_ADV_CONN;
-        adv_param.options |= BT_LE_ADV_OPT_ONE_TIME;
+        adv_param = *BT_LE_ADV_CONN_FAST_2;
         if (!bt_addr_le_eq(&addr, BT_ADDR_LE_NONE)) {
             bt_addr_le_to_str(&addr, addr_buf, BT_ADDR_LE_STR_LEN);
             LOG_INF("Enabling filter: %s", addr_buf);
@@ -405,8 +412,20 @@ static void hids_work_fn(struct k_work* work) {
 static K_WORK_DEFINE(hids_work, hids_work_fn);
 
 static void reset_to_bootloader() {
-    // https://github.com/adafruit/Adafruit_nRF52_Bootloader/blob/master/src/main.c#L116
-    sys_reboot(0x57);
+#ifdef CONFIG_BUILD_OUTPUT_UF2
+    if (!device_is_ready(gpregret_dev)) {
+        LOG_ERR("GPREGRET device not ready.");
+        return;
+    }
+
+    // https://github.com/adafruit/Adafruit_nRF52_Bootloader/blob/master/src/main.c#L112
+    uint8_t dfu_magic_uf2_reset = 0x57;
+
+    // Save the magic value and reboot, the bootloader will see it and enter UF2 mode.
+    if (CHK(retained_mem_write(gpregret_dev, 0, &dfu_magic_uf2_reset, 1))) {
+        sys_reboot(SYS_REBOOT_WARM);
+    }
+#endif
 }
 
 static void report_init() {
@@ -473,7 +492,7 @@ static void handle_buttons() {
 }
 
 int main() {
-    LOG_INF("Gamepad nRF52");
+    LOG_INF("Slimbox BT");
 
     if (!CHK(bt_conn_auth_cb_register(&conn_auth_callbacks))) {
         return 0;

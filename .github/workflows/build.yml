@@ -2,9 +2,9 @@ name: build
 on:
   push:
     paths:
-      - 'src/**'
-      - 'prj.conf'
-      - 'CMakeLists.txt'
+      - 'app/**'
+      - 'west.yml'
+      - 'build.sh'
   workflow_call:
 defaults:
   run:
@@ -12,16 +12,16 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        board: ["adafruit_feather_nrf52840", "seeed_xiao_nrf52840"]
     steps:
+      - name: Free up some disk space
+        run: |
+          df -h
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /usr/share/dotnet || true
+          df -h
       - uses: actions/checkout@v4
       - name: Build
         run: |
-          docker run -v $PWD:/workdir/project -w /workdir/project nordicplayground/nrfconnect-sdk:v2.6-branch \
-            west build -b ${{ matrix.board }}
+          docker run -v $PWD:/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.4 ./build.sh vatican-cameos
       - uses: actions/upload-artifact@v4
         with:
-          path: build/zephyr/*.uf2
-          name: artifact-${{ matrix.board }}
+          path: artifacts/*

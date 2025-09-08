@@ -13,7 +13,6 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: artifact-*
           merge-multiple: true
           path: download
       - uses: softprops/action-gh-release@d4e8205d7e959a9107da6396278b2f1f07af0f9b
