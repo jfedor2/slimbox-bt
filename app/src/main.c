@@ -33,6 +33,8 @@ LOG_MODULE_REGISTER(gamepad, LOG_LEVEL_DBG);
 static const struct gpio_dt_spec expander_reset = GPIO_DT_SPEC_GET(DT_ALIAS(expanderreset), gpios);
 #endif
 
+static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_button), gpios);
+
 #define CHK(X) ({ int err = X; if (err != 0) { LOG_ERR("%s returned %d (%s:%d)", #X, err, __FILE__, __LINE__); } err == 0; })
 
 #define REPORT_ID 3
@@ -79,11 +81,17 @@ static struct report_t prev_report;
 
 static const uint8_t dpad_lut[] = { 0x0F, 0x06, 0x02, 0x0F, 0x00, 0x07, 0x01, 0x00, 0x04, 0x05, 0x03, 0x04, 0x0F, 0x06, 0x02, 0x0F };
 
-#define GPIO_SPEC_AND_COMMA(button) GPIO_DT_SPEC_GET(button, gpios),
+#define BUTTON(name) UTIL_CAT(button_, name)
+#define BUTTON_FOR_ID(node_id) BUTTON(DT_NODE_FULL_NAME_TOKEN(node_id))
+#define BUTTON_EXISTS(name) DT_NODE_EXISTS(DT_PATH(gamepad_buttons, name))
 
-static const struct gpio_dt_spec buttons[] = {
-    DT_FOREACH_CHILD(DT_PATH(buttons), GPIO_SPEC_AND_COMMA)
-};
+#define _BUTTON_GET_0(name) 0
+#define _BUTTON_GET_1(name) gpio_pin_get_dt(&BUTTON(name))
+#define BUTTON_GET(name) UTIL_CAT(_BUTTON_GET_, BUTTON_EXISTS(name))(name)
+
+#define BUTTON_GPIO_DEF(node_id) static const struct gpio_dt_spec BUTTON_FOR_ID(node_id) = GPIO_DT_SPEC_GET(node_id, gpios);
+
+DT_FOREACH_CHILD(DT_PATH(gamepad_buttons), BUTTON_GPIO_DEF)
 
 #ifdef CONFIG_BUILD_OUTPUT_UF2
 static const struct device* gpregret_dev = DEVICE_DT_GET(DT_NODELABEL(gpregret1));
@@ -438,16 +446,19 @@ static void report_init() {
     memcpy(&prev_report, &report, sizeof(report));
 }
 
-static void configure_buttons(void) {
-    for (size_t i = 0; i < ARRAY_SIZE(buttons); i++) {
-        CHK(gpio_pin_configure_dt(&buttons[i], GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
-    }
+#define GPIO_PIN_CONFIGURE(node_id) CHK(gpio_pin_configure_dt(&BUTTON_FOR_ID(node_id), GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
 
-    CHK(gpio_pin_interrupt_configure_dt(&buttons[0], GPIO_INT_EDGE_BOTH));
+static void configure_buttons(void) {
+    DT_FOREACH_CHILD(DT_PATH(gamepad_buttons), GPIO_PIN_CONFIGURE)
+
+    // sys_button is probably one of the gamepad buttons we just configured,
+    // but configure it anyway in case it's not.
+    CHK(gpio_pin_configure_dt(&sys_button, GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
+    CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_EDGE_BOTH));
 }
 
 static void handle_buttons() {
-    int sys_button_state = gpio_pin_get_dt(&buttons[0]);
+    int sys_button_state = gpio_pin_get_dt(&sys_button);
     int64_t now = k_uptime_get();
     if (!prev_sys_button_state && sys_button_state) {
         sys_button_pressed_at = now;
@@ -463,24 +474,24 @@ static void handle_buttons() {
     }
     prev_sys_button_state = sys_button_state;
 
-    report.menu = gpio_pin_get_dt(&buttons[0]);
-    report.options = gpio_pin_get_dt(&buttons[1]);
-    report.stadia = gpio_pin_get_dt(&buttons[2]);
-    report.capture = gpio_pin_get_dt(&buttons[3]);
-    report.l3 = gpio_pin_get_dt(&buttons[4]);
-    report.r3 = gpio_pin_get_dt(&buttons[5]);
-    report.x = gpio_pin_get_dt(&buttons[10]);
-    report.y = gpio_pin_get_dt(&buttons[11]);
-    report.r1 = gpio_pin_get_dt(&buttons[12]);
-    report.l1 = gpio_pin_get_dt(&buttons[13]);
-    report.a = gpio_pin_get_dt(&buttons[14]);
-    report.b = gpio_pin_get_dt(&buttons[15]);
-    report.r2 = gpio_pin_get_dt(&buttons[16]);
+    report.menu = BUTTON_GET(start);
+    report.options = BUTTON_GET(select);
+    report.stadia = BUTTON_GET(home);
+    report.capture = BUTTON_GET(button14);
+    report.l3 = BUTTON_GET(l3);
+    report.r3 = BUTTON_GET(r3);
+    report.x = BUTTON_GET(west);
+    report.y = BUTTON_GET(north);
+    report.r1 = BUTTON_GET(r1);
+    report.l1 = BUTTON_GET(l1);
+    report.a = BUTTON_GET(south);
+    report.b = BUTTON_GET(east);
+    report.r2 = BUTTON_GET(l2);
     report.r2_axis = report.r2 * 255;
-    report.l2 = gpio_pin_get_dt(&buttons[17]);
+    report.l2 = BUTTON_GET(r2);
     report.l2_axis = report.l2 * 255;
 
-    int dpad = gpio_pin_get_dt(&buttons[6]) | (gpio_pin_get_dt(&buttons[8]) << 1) | (gpio_pin_get_dt(&buttons[9]) << 2) | (gpio_pin_get_dt(&buttons[7]) << 3);
+    int dpad = BUTTON_GET(dpad_left) | (BUTTON_GET(dpad_right) << 1) | (BUTTON_GET(dpad_up) << 2) | (BUTTON_GET(dpad_down) << 3);
 
     report.dpad = dpad_lut[dpad];
 
