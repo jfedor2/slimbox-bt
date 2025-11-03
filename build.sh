@@ -12,11 +12,17 @@ west update -o=--depth=1 -n
 
 mkdir artifacts
 
-west build -b adafruit_feather_nrf52840/nrf52840/uf2 -d build-adafruit_feather_nrf52840 app
+west build -b adafruit_feather_nrf52840/nrf52840/uf2 -d build-adafruit_feather_nrf52840 app -- -DEXTRA_DTC_OVERLAY_FILE=boards/feather_mapping.overlay
 mv build-adafruit_feather_nrf52840/app/zephyr/slimbox-bt.uf2 artifacts/
 
-west build -b xiao_ble -d build-seeed_xiao_nrf52840 app
-mv build-seeed_xiao_nrf52840/app/zephyr/flatbox-rev7.uf2 artifacts/
+west build -b xiao_ble -d build-flatbox-rev7-nrf52840 app -- -DEXTRA_CONF_FILE=boards/flatbox_rev7.conf -DEXTRA_DTC_OVERLAY_FILE="boards/xiao_ble_i2c_pullup.overlay boards/flatbox_rev7.overlay"
+mv build-flatbox-rev7-nrf52840/app/zephyr/flatbox-rev7.uf2 artifacts/
 
-west build -b xiao_nrf54l15/nrf54l15/cpuapp -d build-seeed_xiao_nrf54l15 app -- -DBOARD_ROOT=`pwd`/app
-mv build-seeed_xiao_nrf54l15/merged.hex artifacts/flatbox-rev7-nrf54l15.hex
+west build -b xiao_nrf54l15/nrf54l15/cpuapp -d build-flatbox-rev7-nrf54l15 app -- -DBOARD_ROOT=`pwd`/app -DEXTRA_CONF_FILE=boards/flatbox_rev7.conf -DEXTRA_DTC_OVERLAY_FILE="boards/xiao_nrf54l15_i2c_pullup.overlay boards/flatbox_rev7.overlay"
+mv build-flatbox-rev7-nrf54l15/merged.hex artifacts/flatbox-rev7-nrf54l15.hex
+
+west build -b xiao_ble -d build-seeed_xiao_nrf52840 app -- -DEXTRA_CONF_FILE=boards/disable_uart_console.conf -DEXTRA_DTC_OVERLAY_FILE=boards/xiao_mapping.overlay
+mv build-seeed_xiao_nrf52840/app/zephyr/slimbox-bt.uf2 artifacts/slimbox-bt-xiao_nrf52840.uf2
+
+west build -b xiao_nrf54l15/nrf54l15/cpuapp -d build-seeed_xiao_nrf54l15 app -- -DEXTRA_CONF_FILE=boards/disable_uart_console.conf -DBOARD_ROOT=`pwd`/app -DEXTRA_DTC_OVERLAY_FILE=boards/xiao_mapping.overlay
+mv build-seeed_xiao_nrf54l15/merged.hex artifacts/slimbox-bt-xiao_nrf54l15.hex

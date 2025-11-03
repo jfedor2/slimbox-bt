@@ -9,6 +9,8 @@ The following pre-built binaries are provided:
 * [slimbox-bt.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt.uf2): for the [Slimbox BT](https://www.printables.com/model/923690-slimbox-bt) or any other handwired controller using the [Adafruit Feather nRF52840 Express](https://www.adafruit.com/product/4062) board
 * [flatbox-rev7.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7.uf2): for the [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7) with a [Seeed Studio Xiao nRF52840](https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html) board
 * [flatbox-rev7-nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7-nrf54l15.hex): for the [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7) with a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
+* [slimbox-bt-xiao_nrf52840.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf52840.uf2): for a handwired controller using a [Seeed Studio Xiao nRF52840](https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html) board
+* [slimbox-bt-xiao_nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf54l15.hex): for a handwired controller using a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
 
 ## How to use
 
@@ -34,14 +36,14 @@ If you're using the `slimbox-bt.uf2` firmware with an Adafruit Feather nRF52840 
 
 pin | button
 --- | ------
-A5 | cross
-A4 | circle
-D2 | square
-MI | triangle
-10 | left
-6 | right
-A0 | up
-9 | down
+A5 | south
+A4 | east
+D2 | west
+MI | north
+10 | D-pad left
+6 | D-pad right
+A0 | D-pad up
+9 | D-pad down
 SCK | L1
 MO | R1
 A2 | L2
@@ -51,7 +53,23 @@ A3 | R2
 SDA | select
 11 | start
 SCL | home
-5 | capture
+5 | button 14
+
+If you're using one of the standalone Xiao builds (not as part of Flatbox rev7), wire the buttons to pins on the board as follows:
+
+pin | button
+--- | ------
+D0 | start
+D1 | select
+D2 | home
+D3 | south
+D4 | east
+D5 | west
+D6 | north
+D7 | D-pad left
+D8 | D-pad right
+D9 | D-pad up
+D10 | D-pad down
 
 ## How to compile
 
@@ -71,7 +89,6 @@ docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephy
 * analog inputs for sticks and triggers
 * version for nRF52832 boards
 * LEDs as status indicators
-* split board configurations into device-specific overlays
 * compatibility with other platforms
 * figure out why directed advertising doesn't seem to work
 

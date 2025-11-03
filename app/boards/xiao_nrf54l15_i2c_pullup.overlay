@@ -1,0 +1,7 @@
+&pinctrl {
+    i2c22_default {
+        group1 {
+            bias-pull-up;
+        };
+    };
+};
