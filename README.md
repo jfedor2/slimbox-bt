@@ -22,6 +22,8 @@ The controller can be paired with one device at a time.
 
 To put the controller in firmware flashing mode (if that's a thing on the board you're using), press the "start" button for 10 seconds.
 
+Wired operation is supported on platforms with USB hardware (currently nRF52840). When the controller is connected over USB, the Bluetooth connection is disabled.
+
 ## How to flash the firmware
 
 Assuming you're using one of the devices that come with a UF2 bootloader and for which pre-built binaries are provided, to flash the firmware connect the device to your computer with a USB cable, then press the RESET button twice quickly. A USB drive should appear on your computer. The name of the drive will depend on what device you're using, on the Adafruit Feather nRF52840 Express, the drive is named "FTHR840BOOT". Download the appropriate UF2 file from the releases section (`slimbox-bt.uf2` for the Adafruit Feather nRF52840 Express) and copy it to the drive that appeared.
@@ -83,7 +85,6 @@ docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephy
 
 ## TODO
 
-* wired operation when connected over USB
 * battery level reporting
 * measure and optimize power consumption
 * analog inputs for sticks and triggers

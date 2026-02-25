@@ -1,0 +1,8 @@
+/ {
+    hid_dev_0: hid_dev_0 {
+        compatible = "zephyr,hid-device";
+        in-report-size = <64>;
+        // on Full Speed devices this translates to 1ms
+        in-polling-period-us = <125>;
+    };
+};

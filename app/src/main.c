@@ -17,6 +17,11 @@
 #include <zephyr/sys/reboot.h>
 #endif
 
+#ifdef CONFIG_USBD_HID_SUPPORT
+#include <zephyr/usb/class/usbd_hid.h>
+#include <zephyr/usb/usbd.h>
+#endif
+
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -116,7 +121,13 @@ static bool try_directed;
 static int prev_sys_button_state = 0;
 static int64_t sys_button_pressed_at;
 
+static bool usb_ready = false;
+
 static void sleep_work_fn(struct k_work* work) {
+    if (usb_ready) {
+        LOG_INF("USB connected, not sleeping.");
+        return;
+    }
 #if DT_NODE_HAS_STATUS(DT_ALIAS(expanderreset), okay)
     // drive expander reset pin low
     gpio_pin_set_dt(&expander_reset, 1);
@@ -132,6 +143,10 @@ static void bond_find(const struct bt_bond_info* info, void* user_data) {
 
 static void advertising_work_fn(struct k_work* work) {
     LOG_INF("");
+    if (usb_ready) {
+        LOG_INF("USB connected, not starting advertising.");
+        return;
+    }
 
     struct bt_le_adv_param adv_param;
 
@@ -446,6 +461,126 @@ static void report_init() {
     memcpy(&prev_report, &report, sizeof(report));
 }
 
+#ifdef CONFIG_USBD_HID_SUPPORT
+
+static K_SEM_DEFINE(hid_report_sem, 1, 1);
+
+const struct device* hid_dev = DEVICE_DT_GET_ONE(zephyr_hid_device);
+
+USBD_DEVICE_DEFINE(context, DEVICE_DT_GET(DT_NODELABEL(zephyr_udc0)), CONFIG_BT_DIS_PNP_VID, CONFIG_BT_DIS_PNP_PID);
+
+USBD_DESC_LANG_DEFINE(desc_lang);
+USBD_DESC_MANUFACTURER_DEFINE(desc_manufacturer, CONFIG_BT_DIS_MANUF_NAME_STR);
+USBD_DESC_PRODUCT_DEFINE(desc_product, CONFIG_BT_DEVICE_NAME);
+USBD_DESC_SERIAL_NUMBER_DEFINE(desc_serial_number);
+
+static const uint8_t attributes = 0;
+
+USBD_CONFIGURATION_DEFINE(fs_config, attributes, 50, NULL);  // 50*2 mA = 100 mA
+
+USBD_CONFIGURATION_DEFINE(hs_config, attributes, 50, NULL);  // 50*2 mA = 100 mA
+
+UDC_STATIC_BUF_DEFINE(usb_report, sizeof(report) + 1);
+
+static void iface_ready(const struct device* dev, const bool ready) {
+    LOG_INF("%d", ready);
+    usb_ready = ready;
+    if (usb_ready) {
+        if (active_conn != NULL) {
+            LOG_INF("Disconnecting...");
+            CHK(bt_conn_disconnect(active_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
+        } else {
+            LOG_INF("(not connected)");
+            CHK(bt_le_adv_stop());
+        }
+    } else {
+        advertising_start();
+    }
+}
+
+static int get_report(const struct device* dev,
+    const uint8_t type,
+    const uint8_t id,
+    const uint16_t len,
+    uint8_t* const buf) {
+    LOG_INF("type=%u, id=%u", type, id);
+
+    return 0;
+}
+
+static void input_report_done(const struct device* dev, const uint8_t* const report) {
+    k_sem_give(&hid_report_sem);
+}
+
+static struct hid_device_ops ops = {
+    .iface_ready = iface_ready,
+    .get_report = get_report,
+    .input_report_done = input_report_done,
+};
+
+bool initialize_usb() {
+    if (!device_is_ready(hid_dev)) {
+        LOG_ERR("hid_dev not ready");
+        return false;
+    }
+
+    if (!CHK(hid_device_register(hid_dev, report_map, sizeof(report_map), &ops))) {
+        return false;
+    }
+
+    if (!CHK(usbd_add_descriptor(&context, &desc_lang))) {
+        return false;
+    }
+
+    if (!CHK(usbd_add_descriptor(&context, &desc_manufacturer))) {
+        return false;
+    }
+
+    if (!CHK(usbd_add_descriptor(&context, &desc_product))) {
+        return false;
+    }
+
+    if (!CHK(usbd_add_descriptor(&context, &desc_serial_number))) {
+        return false;
+    }
+
+    if (USBD_SUPPORTS_HIGH_SPEED && usbd_caps_speed(&context) == USBD_SPEED_HS) {
+        if (!CHK(usbd_add_configuration(&context, USBD_SPEED_HS, &hs_config))) {
+            return false;
+        }
+
+        if (!CHK(usbd_register_class(&context, "hid_0", USBD_SPEED_HS, 1))) {
+            return false;
+        }
+
+        usbd_device_set_code_triple(&context, USBD_SPEED_HS, 0, 0, 0);
+    }
+
+    if (!CHK(usbd_add_configuration(&context, USBD_SPEED_FS, &fs_config))) {
+        return false;
+    }
+
+    if (!CHK(usbd_register_class(&context, "hid_0", USBD_SPEED_FS, 1))) {
+        return false;
+    }
+
+    usbd_device_set_code_triple(&context, USBD_SPEED_FS, 0, 0, 0);
+
+    usbd_self_powered(&context, false);
+
+    if (!CHK(usbd_init(&context))) {
+        return false;
+    }
+
+    if (!CHK(usbd_enable(&context))) {
+        return false;
+    }
+
+    return true;
+}
+
+#endif  // CONFIG_USBD_HID_SUPPORT
+
 #define GPIO_PIN_CONFIGURE(node_id) CHK(gpio_pin_configure_dt(&BUTTON_FOR_ID(node_id), GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
 
 static void configure_buttons(void) {
@@ -494,12 +629,6 @@ static void handle_buttons() {
     int dpad = BUTTON_GET(dpad_left) | (BUTTON_GET(dpad_right) << 1) | (BUTTON_GET(dpad_up) << 2) | (BUTTON_GET(dpad_down) << 3);
 
     report.dpad = dpad_lut[dpad];
-
-    if (memcmp(&prev_report, &report, sizeof(report))) {
-        k_msgq_put(&hids_queue, &report, K_NO_WAIT);
-        k_work_submit(&hids_work);
-        memcpy(&prev_report, &report, sizeof(report));
-    }
 }
 
 int main() {
@@ -515,6 +644,12 @@ int main() {
 
     report_init();
     hid_init();
+#ifdef CONFIG_USBD_HID_SUPPORT
+    if (!initialize_usb()) {
+        LOG_ERR("initialize_usb() failed");
+        return 0;
+    }
+#endif
 
     if (!CHK(bt_enable(NULL))) {
         return 0;
@@ -525,7 +660,31 @@ int main() {
     configure_buttons();
 
     while (1) {
-        k_sleep(K_MSEC(1));
+        // this makes logging work, but potentially stops us from achieving max polling rate
+        // k_sleep(K_USEC(1));
+        if (!usb_ready) {
+            k_sleep(K_MSEC(1));
+        }
         handle_buttons();
+
+        if (memcmp(&prev_report, &report, sizeof(report))) {
+            if (usb_ready) {
+#ifdef CONFIG_USBD_HID_SUPPORT
+                if (!k_sem_take(&hid_report_sem, K_NO_WAIT)) {
+                    usb_report[0] = REPORT_ID;
+                    memcpy(usb_report + 1, &report, sizeof(report));
+                    if (CHK(hid_device_submit_report(hid_dev, sizeof(report) + 1, usb_report))) {
+                        memcpy(&prev_report, &report, sizeof(report));
+                    } else {
+                        k_sem_give(&hid_report_sem);
+                    }
+                }
+#endif
+            } else {
+                k_msgq_put(&hids_queue, &report, K_NO_WAIT);
+                k_work_submit(&hids_work);
+                memcpy(&prev_report, &report, sizeof(report));
+            }
+        }
     }
 }
