@@ -1,0 +1,5 @@
+/ {
+	chosen {
+		zephyr,flash-controller = &rram_controller;
+	};
+};
