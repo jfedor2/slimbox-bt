@@ -11,6 +11,7 @@ The following pre-built binaries are provided:
 * [flatbox-rev7-nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/flatbox-rev7-nrf54l15.hex): for the [Flatbox rev7](https://github.com/jfedor2/flatbox/tree/master/hardware-rev7) with a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
 * [slimbox-bt-xiao_nrf52840.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf52840.uf2): for a handwired controller using a [Seeed Studio Xiao nRF52840](https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html) board
 * [slimbox-bt-xiao_nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf54l15.hex): for a handwired controller using a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
+* [slimbox-bt-nice_nano.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nice_nano.uf2): for a handwired controller using a [nice!nano](https://nicekeyboards.com/nice-nano/) board or one of its many clones
 
 ## How to use
 
@@ -34,7 +35,10 @@ For devices using the nRF54L15 chip that don't come with a UF2 bootloader, you w
 
 ## Pinout
 
-If you're using the `slimbox-bt.uf2` firmware with an Adafruit Feather nRF52840 Express board, wire the buttons to pins on the board as follows:
+<details>
+<summary>Adafruit Feather nRF52840 Express</summary>
+
+If you're using an Adafruit Feather nRF52840 Express board, wire the buttons to pins on the board as follows:
 
 pin | button
 --- | ------
@@ -56,6 +60,10 @@ SDA | select
 11 | start
 SCL | home
 5 | button 14
+</details>
+
+<details>
+<summary>Seeed Xiao</summary>
 
 If you're using one of the standalone Xiao builds (not as part of Flatbox rev7), wire the buttons to pins on the board as follows:
 
@@ -72,6 +80,34 @@ D7 | D-pad left
 D8 | D-pad right
 D9 | D-pad up
 D10 | D-pad down
+</details>
+
+<details>
+<summary>nice!nano and clones</summary>
+
+If you're using a nice!nano board or one of its many clones, wire the buttons to pins on the board as follows:
+
+pin | button
+--- | ------
+006 | start
+008 | select
+017 | D-pad left
+020 | D-pad right
+022 | D-pad up
+024 | D-pad down
+100 | south
+011 | east
+104 | west
+106 | north
+009 | L1
+010 | R1
+111 | L2
+113 | R2
+115 | L3
+002 | R3
+029 | home
+031 | button 14
+</details>
 
 ## How to compile
 

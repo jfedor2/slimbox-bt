@@ -26,3 +26,6 @@ mv build-seeed_xiao_nrf52840/app/zephyr/slimbox-bt.uf2 artifacts/slimbox-bt-xiao
 
 west build -b xiao_nrf54l15/nrf54l15/cpuapp -d build-seeed_xiao_nrf54l15 app -- -DEXTRA_CONF_FILE=boards/disable_uart_console.conf -DBOARD_ROOT=`pwd`/app -DEXTRA_DTC_OVERLAY_FILE=boards/xiao_mapping.overlay
 mv build-seeed_xiao_nrf54l15/merged.hex artifacts/slimbox-bt-xiao_nrf54l15.hex
+
+west build -b nice_nano -d build-nice_nano app -- -DBOARD_ROOT=`pwd`/app -DEXTRA_CONF_FILE=boards/usb.conf -DEXTRA_DTC_OVERLAY_FILE="boards/hid_dev.overlay boards/pro_micro_mapping.overlay"
+mv build-nice_nano/app/zephyr/slimbox-bt.uf2 artifacts/slimbox-bt-nice_nano.uf2

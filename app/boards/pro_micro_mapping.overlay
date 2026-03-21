@@ -1,0 +1,30 @@
+/ {
+    gamepad-buttons {
+        compatible = "gpio-keys";
+        // order of pins on Arduino Pro Micro, starting top left and going counter-clockwise:
+        // 1 0 2 3 4 5 6 7 8 9
+        // 10 16 14 15 18 19 20 21
+        dpad-left { gpios = <&pro_micro 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        dpad-right { gpios = <&pro_micro 3 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        dpad-up { gpios = <&pro_micro 4 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        dpad-down { gpios = <&pro_micro 5 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        south { gpios = <&pro_micro 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        east { gpios = <&pro_micro 7 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        west { gpios = <&pro_micro 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        north { gpios = <&pro_micro 9 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        l1 { gpios = <&pro_micro 10 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        r1 { gpios = <&pro_micro 16 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        l2 { gpios = <&pro_micro 14 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        r2 { gpios = <&pro_micro 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        l3 { gpios = <&pro_micro 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        r3 { gpios = <&pro_micro 19 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        select { gpios = <&pro_micro 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        start { gpios = <&pro_micro 1 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        home { gpios = <&pro_micro 20 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+        button14 { gpios = <&pro_micro 21 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; };
+    };
+
+    aliases {
+        sys-button = "/gamepad-buttons/start";
+    };
+};
