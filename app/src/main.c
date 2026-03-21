@@ -120,6 +120,7 @@ static bool try_directed;
 
 static int prev_sys_button_state = 0;
 static int64_t sys_button_pressed_at;
+static bool sys_button_very_long_press_handled = false;
 
 static bool usb_ready = false;
 
@@ -597,14 +598,26 @@ static void handle_buttons() {
     int64_t now = k_uptime_get();
     if (!prev_sys_button_state && sys_button_state) {
         sys_button_pressed_at = now;
+        sys_button_very_long_press_handled = false;
+    }
+
+    if (sys_button_state && !sys_button_very_long_press_handled) {
+        int64_t duration = now - sys_button_pressed_at;
+        if (duration >= SYS_BUTTON_VERY_LONG_PRESS_MS) {
+            sys_button_very_long_press_handled = true;
+            if (usb_ready) {
+                reset_to_bootloader();
+            } else {
+                k_work_submit(&clear_bonds_work);
+            }
+        }
     }
 
     if (prev_sys_button_state && !sys_button_state) {
         int64_t duration = now - sys_button_pressed_at;
-        if (duration >= SYS_BUTTON_VERY_LONG_PRESS_MS) {
-            reset_to_bootloader();
-        } else if (duration >= SYS_BUTTON_LONG_PRESS_MS) {
-            k_work_submit(&clear_bonds_work);
+        if (!usb_ready && !sys_button_very_long_press_handled &&
+            (duration >= SYS_BUTTON_LONG_PRESS_MS)) {
+            k_work_reschedule(&sleep_work, K_NO_WAIT);
         }
     }
     prev_sys_button_state = sys_button_state;

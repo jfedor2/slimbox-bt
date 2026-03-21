@@ -15,15 +15,17 @@ The following pre-built binaries are provided:
 
 ## How to use
 
-The controller will go to sleep after 10 minutes of inactivity when connected and after 1 minute when not connected. To wake it up press the "start" button (the one in the top left corner on the Flatbox rev7 and wherever you wired it on handwired devices).
-
-To put the controller in pairing mode, press the "start" button for 3 seconds.
-
-The controller can be paired with one device at a time.
-
-To put the controller in firmware flashing mode (if that's a thing on the board you're using), press the "start" button for 10 seconds.
+One of the buttons is designated as the "system button". Currently on all the provided builds it is the `start` button. If you make a custom build you can change it to any other button or even have a dedicated system button that isn't shared with any of the gamepad buttons. On the Flatbox rev7 the `start` button (and therefore the system button) is the button in the top left corner.
 
 Wired operation is supported on platforms with USB hardware (currently nRF52840). When the controller is connected over USB, the Bluetooth connection is disabled.
+
+When the controller is not connected over USB, it will go to sleep after 10 minutes of inactivity when connected over Bluetooth and after 1 minute when not connected. To wake it up press the system button.
+
+When connected over USB, to put the controller in firmware flashing mode (if that's a thing on the board you're using), press the system button for 10 seconds.
+
+When not connected over USB, to turn the controller off press the system button for 3 seconds, and to put the controller in pairing mode press the system button for 10 seconds.
+
+The controller can be paired with one device at a time.
 
 ## How to flash the firmware
 
