@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 Clunky Machines
+# SPDX-License-Identifier: Apache-2.0
+
+identifier: holyiot_25055/nrf54l15/cpuapp
+name: HOLYIOT-25055-nRF54L05-Application
+type: mcu
+arch: arm
+toolchain:
+  - gnuarmemb
+  - zephyr
+sysbuild: true
+ram: 96
+flash: 500
+supported:
+  - adc
+  - counter
+  - gpio
+  - pwm
+  - retained_mem
+  - sensor
+  - spi
+  - watchdog
+vendor: holyiot

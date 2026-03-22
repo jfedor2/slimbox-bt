@@ -1,0 +1,6 @@
+board:
+  name: holyiot_25055
+  full_name: HOLYIOT 25055
+  vendor: holyiot
+  socs:
+    - name: nrf54l05

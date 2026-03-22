@@ -36,3 +36,8 @@ west build -b holyiot_25008/nrf54l15/cpuapp -d build-holyiot_25008 app -- -DEXTR
 mv build-holyiot_25008/merged.hex artifacts/slimbox-bt-holyiot_25008.hex
 
 #west build -b holyiot_25008/nrf54l15/cpuapp -d build-holyiot_25008-otadfu app -- -DEXTRA_CONF_FILE="boards/disable_uart_console.conf boards/ota_dfu.conf" -DBOARD_ROOT=`pwd`/app -DEXTRA_DTC_OVERLAY_FILE=boards/holyiot_25008_mapping.overlay -DSB_CONF_FILE=sysbuild_boards/enable_mcuboot.conf -Dmcuboot_EXTRA_DTC_OVERLAY_FILE=${PWD}/app/sysbuild_boards/mcuboot_nrf54l.overlay
+
+west build -b holyiot_25055/nrf54l05/cpuapp -d build-holyiot_25055 app -- -DEXTRA_CONF_FILE=boards/disable_uart_console.conf -DBOARD_ROOT=`pwd`/app -DEXTRA_DTC_OVERLAY_FILE=boards/holyiot_25055_mapping.overlay
+mv build-holyiot_25055/merged.hex artifacts/slimbox-bt-holyiot_25055.hex
+
+#west build -b holyiot_25055/nrf54l05/cpuapp -d build-holyiot_25055-otadfu app -- -DEXTRA_CONF_FILE="boards/disable_uart_console.conf boards/ota_dfu.conf" -DBOARD_ROOT=`pwd`/app -DEXTRA_DTC_OVERLAY_FILE=boards/holyiot_25055_mapping.overlay -DSB_CONF_FILE=sysbuild_boards/enable_mcuboot.conf -Dmcuboot_EXTRA_DTC_OVERLAY_FILE=${PWD}/app/sysbuild_boards/mcuboot_nrf54l.overlay -DCONFIG_LOG=n
