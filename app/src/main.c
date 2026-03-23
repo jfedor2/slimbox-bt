@@ -6,6 +6,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/poweroff.h>
@@ -134,6 +135,7 @@ static void sleep_work_fn(struct k_work* work) {
     gpio_pin_set_dt(&expander_reset, 1);
 #endif
     LOG_INF("Going to sleep...");
+    log_panic();
     sys_poweroff();
 }
 static K_WORK_DELAYABLE_DEFINE(sleep_work, sleep_work_fn);
