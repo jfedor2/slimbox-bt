@@ -127,7 +127,6 @@ docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephy
 * measure and optimize power consumption
 * analog inputs for sticks and triggers
 * version for nRF52832 boards
-* LEDs as status indicators
 * compatibility with other platforms
 * figure out why directed advertising doesn't seem to work
 

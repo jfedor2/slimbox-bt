@@ -6,6 +6,10 @@
         zephyr,bt-mon-uart = &uart0;
         zephyr,bt-c2h-uart = &uart0;
     };
+
+    aliases {
+        status-led = &led2;
+    };
 };
 
 &gpio0 {

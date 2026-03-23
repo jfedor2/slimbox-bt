@@ -1,3 +1,9 @@
+/ {
+    aliases {
+        status-led = &blue_led;
+    };
+};
+
 &gpio0 {
     sense-edge-mask = < 0xffffffff >;
 };

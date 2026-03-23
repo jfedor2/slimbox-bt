@@ -55,6 +55,80 @@ static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_butt
 #define SYS_BUTTON_LONG_PRESS_MS 3000
 #define SYS_BUTTON_VERY_LONG_PRESS_MS 10000
 
+enum LedMode {
+    LED_OFF = 0,
+    LED_ON = 1,
+    LED_CONNECTED = 2,
+    LED_ADVERTISING = 3,
+    LED_PAIRING = 4,
+};
+
+static atomic_t led_mode = (atomic_t) ATOMIC_INIT(LED_OFF);
+static bool led_next_blink_state = true;
+
+#if DT_NODE_HAS_STATUS(DT_ALIAS(status_led), okay)
+static const struct gpio_dt_spec status_led = GPIO_DT_SPEC_GET(DT_ALIAS(status_led), gpios);
+#endif
+
+static inline void set_status_led(bool state) {
+#if DT_NODE_HAS_STATUS(DT_ALIAS(status_led), okay)
+    gpio_pin_set_dt(&status_led, state);
+#endif
+}
+
+static void configure_leds() {
+#if DT_NODE_HAS_STATUS(DT_ALIAS(status_led), okay)
+    if (device_is_ready(status_led.port)) {
+        CHK(gpio_pin_configure_dt(&status_led, GPIO_OUTPUT));
+        set_status_led(false);
+    } else {
+        LOG_ERR("status_led device %s not ready", status_led.port->name);
+    }
+#endif
+}
+
+static void led_work_fn(struct k_work* work);
+static K_WORK_DELAYABLE_DEFINE(led_work, led_work_fn);
+
+static void led_work_fn(struct k_work* work) {
+    enum LedMode my_led_mode = (enum LedMode) atomic_get(&led_mode);
+    int next_work = 0;
+    switch (my_led_mode) {
+        case LED_OFF:
+            set_status_led(false);
+            break;
+        case LED_ON:
+            set_status_led(true);
+            break;
+        case LED_ADVERTISING:
+            set_status_led(led_next_blink_state);
+            led_next_blink_state = !led_next_blink_state;
+            next_work = led_next_blink_state ? 200 : 1800;
+            break;
+        case LED_CONNECTED:
+            set_status_led(led_next_blink_state);
+            led_next_blink_state = !led_next_blink_state;
+            next_work = led_next_blink_state ? 1900 : 100;
+            break;
+        case LED_PAIRING:
+            set_status_led(led_next_blink_state);
+            led_next_blink_state = !led_next_blink_state;
+            next_work = 100;
+            break;
+    }
+    if (next_work > 0) {
+        k_work_reschedule(&led_work, K_MSEC(next_work));
+    }
+}
+
+static void set_led_mode(enum LedMode led_mode_) {
+    enum LedMode previous = atomic_set(&led_mode, (atomic_val_t) led_mode_);
+    if (previous != (atomic_val_t) led_mode_) {
+        LOG_INF("led mode %d -> %d", previous, led_mode_);
+        k_work_reschedule(&led_work, K_NO_WAIT);
+    }
+}
+
 struct __attribute__((packed)) report_t {
     uint8_t dpad;
     uint8_t capture : 1;
@@ -134,6 +208,7 @@ static void sleep_work_fn(struct k_work* work) {
     // drive expander reset pin low
     gpio_pin_set_dt(&expander_reset, 1);
 #endif
+    set_status_led(false);
     LOG_INF("Going to sleep...");
     log_panic();
     sys_poweroff();
@@ -168,6 +243,8 @@ static void advertising_work_fn(struct k_work* work) {
             return;
         }
 
+        set_led_mode(LED_ADVERTISING);
+
         bt_addr_le_to_str(&addr, addr_buf, BT_ADDR_LE_STR_LEN);
         LOG_INF("Directed advertising to %s started.", addr_buf);
     } else {
@@ -185,6 +262,12 @@ static void advertising_work_fn(struct k_work* work) {
 
         if (!CHK(bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), NULL, 0))) {
             return;
+        }
+
+        if (!bt_addr_le_eq(&addr, BT_ADDR_LE_NONE)) {
+            set_led_mode(LED_ADVERTISING);
+        } else {
+            set_led_mode(LED_PAIRING);
         }
 
         LOG_INF("Regular advertising started.");
@@ -239,6 +322,7 @@ static void connected(struct bt_conn* conn, uint8_t err) {
 
     CHK(bt_hids_connected(&hids_obj, conn));
 
+    set_led_mode(LED_CONNECTED);
     k_work_reschedule(&sleep_work, CONNECTED_SLEEP_TIMEOUT);
 }
 
@@ -489,6 +573,7 @@ static void iface_ready(const struct device* dev, const bool ready) {
     LOG_INF("%d", ready);
     usb_ready = ready;
     if (usb_ready) {
+        set_led_mode(LED_OFF);
         if (active_conn != NULL) {
             LOG_INF("Disconnecting...");
             CHK(bt_conn_disconnect(active_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
@@ -608,9 +693,14 @@ static void handle_buttons() {
         if (duration >= SYS_BUTTON_VERY_LONG_PRESS_MS) {
             sys_button_very_long_press_handled = true;
             if (usb_ready) {
+                set_status_led(false);
                 reset_to_bootloader();
             } else {
                 k_work_submit(&clear_bonds_work);
+            }
+        } else if (duration > SYS_BUTTON_LONG_PRESS_MS) {
+            if (!usb_ready) {
+                set_led_mode(LED_ON);
             }
         }
     }
@@ -671,6 +761,7 @@ int main() {
     }
 
     settings_load();
+    configure_leds();
     advertising_start();
     configure_buttons();
 

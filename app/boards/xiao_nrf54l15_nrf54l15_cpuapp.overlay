@@ -4,6 +4,10 @@
         zephyr,shell-uart = &uart21;
         nordic,rpc-uart = &uart21;
     };
+
+    aliases {
+        status-led = &led0;
+    };
 };
 
 &gpio0 {
