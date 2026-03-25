@@ -4,11 +4,13 @@
 #include <stddef.h>
 #include <string.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/hwinfo.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/hash_function.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/types.h>
@@ -181,13 +183,23 @@ BT_HIDS_DEF(hids_obj, REPORT_LEN);
 
 K_MSGQ_DEFINE(hids_queue, REPORT_LEN, HIDS_QUEUE_SIZE, 4);
 
+char bt_name[CONFIG_BT_DEVICE_NAME_MAX + 1];
+
+// flags take 3 bytes, UUID takes 4 bytes, appearance takes 4 bytes, name has a 2-byte header
+// max packet size is 31, 31-3-4-4-2=18
+// we append 5 characters to the name in set_bt_name()
+
+BUILD_ASSERT((sizeof(CONFIG_BT_DEVICE_NAME) + 5 - 1) <= 18, "CONFIG_BT_DEVICE_NAME too long");
+
 static const struct bt_data ad[] = {
-    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, (sizeof(CONFIG_BT_DEVICE_NAME) - 1)),
+    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+    BT_DATA_BYTES(BT_DATA_UUID16_SOME, BT_UUID_16_ENCODE(BT_UUID_HIDS_VAL)),
     BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE,
         (CONFIG_BT_DEVICE_APPEARANCE >> 0) & 0xff,
         (CONFIG_BT_DEVICE_APPEARANCE >> 8) & 0xff),
-    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_HIDS_VAL), BT_UUID_16_ENCODE(BT_UUID_BAS_VAL)),
+    BT_DATA(BT_DATA_NAME_COMPLETE,
+        bt_name,
+        MIN(sizeof(CONFIG_BT_DEVICE_NAME) + 5 - 1, CONFIG_BT_DEVICE_NAME_MAX)),
 };
 
 static struct bt_conn* active_conn = NULL;
@@ -387,6 +399,32 @@ static struct bt_conn_auth_info_cb conn_auth_info_callbacks = {
     .pairing_complete = pairing_complete,
     .pairing_failed = pairing_failed
 };
+
+const char id_chars[33] = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
+
+static void set_bt_name() {
+    uint8_t device_id[16];
+    ssize_t length;
+    uint32_t hash = 0;
+
+    length = hwinfo_get_device_id(device_id, sizeof(device_id));
+    if (length > 0) {
+        hash = sys_hash32(device_id, length);
+    } else {
+        LOG_ERR("hwinfo_get_device_id returned %d", length);
+    }
+
+    snprintf(bt_name, sizeof(bt_name), "%s %c%c%c%c",
+        CONFIG_BT_DEVICE_NAME,
+        id_chars[(hash >> 0) & 0x1F],
+        id_chars[(hash >> 5) & 0x1F],
+        id_chars[(hash >> 10) & 0x1F],
+        id_chars[(hash >> 15) & 0x1F]);
+
+    LOG_INF("%s", bt_name);
+
+    bt_set_name(bt_name);
+}
 
 static uint8_t const report_map[] = {
     0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
@@ -761,6 +799,7 @@ int main() {
     }
 
     settings_load();
+    set_bt_name();
     configure_leds();
     advertising_start();
     configure_buttons();
