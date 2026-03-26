@@ -13,12 +13,13 @@ The following pre-built binaries are provided:
 * [slimbox-bt-xiao_nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf54l15.hex): for a handwired controller using a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
 * [slimbox-bt-nice_nano.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nice_nano.uf2): for a handwired controller using a [nice!nano](https://nicekeyboards.com/nice-nano/) board or one of its many clones
 * [slimbox-bt-nrf52dk.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nrf52dk.hex): for the [nRF52 DK](https://www.nordicsemi.com/Products/Development-hardware/nRF52-DK) board
+* [slimbox-bt-nrf54lm20dk.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nrf54lm20dk.hex): for the [nRF54LM20 DK](https://www.nordicsemi.com/Products/Development-hardware/nRF54LM20-DK) board
 
 ## How to use
 
 One of the buttons is designated as the "system button". Currently on all the provided builds it is the `start` button. If you make a custom build you can change it to any other button or even have a dedicated system button that isn't shared with any of the gamepad buttons. On the Flatbox rev7 the `start` button (and therefore the system button) is the button in the top left corner.
 
-Wired operation is supported on platforms with USB hardware (currently nRF52840). When the controller is connected over USB, the Bluetooth connection is disabled.
+Wired operation is supported on platforms with USB hardware (currently nRF52840 and nRF54LM20). When the controller is connected over USB, the Bluetooth connection is disabled.
 
 When the controller is not connected over USB, it will go to sleep after 10 minutes of inactivity when connected over Bluetooth and after 1 minute when not connected. To wake it up press the system button.
 

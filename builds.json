@@ -182,5 +182,20 @@
                 "boards/nrf52dk_mapping.overlay"
             ]
         }
+    },
+    {
+        "name": "nrf54lm20dk",
+        "board": "nrf54lm20dk/nrf54lm20a/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-nrf54lm20dk.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/hid_dev.overlay",
+                "boards/nrf54lm20dk_mapping.overlay"
+            ]
+        }
     }
 ]
