@@ -118,7 +118,7 @@ The easiest way to compile the firmware is to let GitHub do it for you. This rep
 To compile it on your own machine, you can either follow [Nordic's setup instructions](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/installation.html) to prepare the build environment, or you can use Docker. Either way take a look at the [build.sh](build.sh) script. With Docker a command like this builds all existing variants (start from the top level of the repository or adjust the path accordingly):
 
 ```
-docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.4 ./build.sh vatican-cameos
+docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.6 ./build.sh vatican-cameos
 ```
 
 ## TODO

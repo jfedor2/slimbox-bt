@@ -5,8 +5,17 @@
         nordic,rpc-uart = &uart21;
     };
 
+    // board definition has this incorrectly set to active high
+    // remove when we get the version of Zephyr with it fixed
+    leds {
+        led0_al: led_0_al {
+            gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
+            label = "LED 0";
+        };
+    };
+
     aliases {
-        status-led = &led0;
+        status-led = &led0_al;
     };
 };
 

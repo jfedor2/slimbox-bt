@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: |
-          docker run -v $PWD:/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.4 ./build.sh vatican-cameos
+          docker run -v $PWD:/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.6 ./build.sh vatican-cameos
       - uses: actions/upload-artifact@v4
         with:
           path: artifacts/*
