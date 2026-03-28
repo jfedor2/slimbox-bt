@@ -2,7 +2,7 @@
 
 _This is a work in progress._
 
-This repository contains code for wireless game controller firmware meant to run on Nordic's nRF52840 and nRF54L15 chips.
+This repository contains code for wireless game controller firmware meant to run on Nordic's nRF52 and nRF54L chips.
 
 The following pre-built binaries are provided:
 
@@ -12,6 +12,7 @@ The following pre-built binaries are provided:
 * [slimbox-bt-xiao_nrf52840.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf52840.uf2): for a handwired controller using a [Seeed Studio Xiao nRF52840](https://www.seeedstudio.com/Seeed-XIAO-BLE-nRF52840-p-5201.html) board
 * [slimbox-bt-xiao_nrf54l15.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-xiao_nrf54l15.hex): for a handwired controller using a [Seeed Studio Xiao nRF54L15](https://www.seeedstudio.com/XIAO-nRF54L15-p-6493.html) board
 * [slimbox-bt-nice_nano.uf2](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nice_nano.uf2): for a handwired controller using a [nice!nano](https://nicekeyboards.com/nice-nano/) board or one of its many clones
+* [slimbox-bt-nrf52dk.hex](https://github.com/jfedor2/slimbox-bt/releases/latest/download/slimbox-bt-nrf52dk.hex): for the [nRF52 DK](https://www.nordicsemi.com/Products/Development-hardware/nRF52-DK) board
 
 ## How to use
 
@@ -33,7 +34,7 @@ Assuming you're using one of the devices that come with a UF2 bootloader and for
 
 If you already have some previous version of this firmware on your board, instead of pressing the RESET button twice you can hold the "start" button for 10 seconds to enter firmware flashing mode.
 
-For devices using the nRF54L15 chip that don't come with a UF2 bootloader, you will have to use OpenOCD or some other software to flash the firmware, it probably won't be as easy as copying a file to a USB drive.
+For devices that don't come with a UF2 bootloader the procedure may be different, you might have to use OpenOCD or pyOCD or some other board-specific software to flash the firmware.
 
 ## Pinout
 
@@ -126,7 +127,6 @@ docker run --rm -v $(pwd):/workspace/project -w /workspace/project ghcr.io/zephy
 * battery level reporting
 * measure and optimize power consumption
 * analog inputs for sticks and triggers
-* version for nRF52832 boards
 * compatibility with other platforms
 * figure out why directed advertising doesn't seem to work
 
