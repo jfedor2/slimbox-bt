@@ -164,16 +164,29 @@ static struct report_t prev_report;
 static const uint8_t dpad_lut[] = { 0x0F, 0x06, 0x02, 0x0F, 0x00, 0x07, 0x01, 0x00, 0x04, 0x05, 0x03, 0x04, 0x0F, 0x06, 0x02, 0x0F };
 
 #define BUTTON(name) UTIL_CAT(button_, name)
+
 #define BUTTON_FOR_ID(node_id) BUTTON(DT_NODE_FULL_NAME_TOKEN(node_id))
-#define BUTTON_EXISTS(name) DT_NODE_EXISTS(DT_PATH(gamepad_buttons, name))
 
-#define _BUTTON_GET_0(name) 0
-#define _BUTTON_GET_1(name) gpio_pin_get_dt(&BUTTON(name))
-#define BUTTON_GET(name) UTIL_CAT(_BUTTON_GET_, BUTTON_EXISTS(name))(name)
+enum button_idx {
+    DT_FOREACH_CHILD_SEP(DT_PATH(gamepad_buttons), BUTTON_FOR_ID, (, )),
+    NUM_BUTTONS
+};
 
-#define BUTTON_GPIO_DEF(node_id) static const struct gpio_dt_spec BUTTON_FOR_ID(node_id) = GPIO_DT_SPEC_GET(node_id, gpios);
+#define BUTTON_GPIO_DEF(node_id) GPIO_DT_SPEC_GET(node_id, gpios),
 
-DT_FOREACH_CHILD(DT_PATH(gamepad_buttons), BUTTON_GPIO_DEF)
+static struct gpio_dt_spec buttons[] = {
+    DT_FOREACH_CHILD(DT_PATH(gamepad_buttons), BUTTON_GPIO_DEF)
+};
+
+static gpio_port_value_t* button_port_states[NUM_BUTTONS];
+
+#define _COUNT_GPIO_CONTROLLER(node_id) IF_ENABLED(DT_NODE_HAS_PROP(node_id, gpio_controller), (+1))
+#define NUM_GPIO_PORTS (0 DT_FOREACH_STATUS_OKAY_NODE(_COUNT_GPIO_CONTROLLER))
+
+static const struct device* gpio_ports[NUM_GPIO_PORTS];
+static gpio_port_value_t gpio_port_states[NUM_GPIO_PORTS];
+
+static int active_gpio_ports = 0;
 
 #ifdef CONFIG_BUILD_OUTPUT_UF2
 static const struct device* gpregret_dev = DEVICE_DT_GET(DT_NODELABEL(gpregret1));
@@ -707,16 +720,39 @@ bool initialize_usb() {
 
 #endif  // CONFIG_USBD_HID_SUPPORT
 
-#define GPIO_PIN_CONFIGURE(node_id) CHK(gpio_pin_configure_dt(&BUTTON_FOR_ID(node_id), GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
-
 static void configure_buttons(void) {
-    DT_FOREACH_CHILD(DT_PATH(gamepad_buttons), GPIO_PIN_CONFIGURE)
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+        CHK(gpio_pin_configure_dt(&buttons[i], GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
+        int16_t port_idx = -1;
+
+        for (uint8_t j = 0; j < active_gpio_ports; j++) {
+            if (gpio_ports[j] == buttons[i].port) {
+                port_idx = j;
+                break;
+            }
+        }
+
+        if (port_idx == -1) {
+            port_idx = active_gpio_ports;
+            gpio_ports[port_idx] = buttons[i].port;
+            active_gpio_ports++;
+        }
+
+        button_port_states[i] = &gpio_port_states[port_idx];
+    }
+
+    LOG_INF("active_gpio_ports=%d", active_gpio_ports);
 
     // sys_button is probably one of the gamepad buttons we just configured,
     // but configure it anyway in case it's not.
     CHK(gpio_pin_configure_dt(&sys_button, GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
     CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_EDGE_BOTH));
 }
+
+#define BUTTON_GET(name)                                                                                        \
+    COND_CODE_1(DT_NODE_EXISTS(DT_PATH(gamepad_buttons, name)),                                                 \
+        ((0 != (*button_port_states[BUTTON(name)] & BIT(DT_GPIO_PIN(DT_PATH(gamepad_buttons, name), gpios))))), \
+        (0))
 
 static void handle_buttons() {
     int sys_button_state = gpio_pin_get_dt(&sys_button);
@@ -751,6 +787,10 @@ static void handle_buttons() {
         }
     }
     prev_sys_button_state = sys_button_state;
+
+    for (uint8_t i = 0; i < active_gpio_ports; i++) {
+        CHK(gpio_port_get(gpio_ports[i], &gpio_port_states[i]));
+    }
 
     report.menu = BUTTON_GET(start);
     report.options = BUTTON_GET(select);
