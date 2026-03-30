@@ -235,7 +235,7 @@ static void sleep_work_fn(struct k_work* work) {
 #endif
     set_status_led(false);
     LOG_INF("Going to sleep...");
-    log_panic();
+    LOG_PANIC();
     sys_poweroff();
 }
 static K_WORK_DELAYABLE_DEFINE(sleep_work, sleep_work_fn);
