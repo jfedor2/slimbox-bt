@@ -1,0 +1,186 @@
+[
+    {
+        "name": "adafruit_feather_nrf52840",
+        "board": "adafruit_feather_nrf52840/nrf52840/uf2",
+        "artifact_built_name": "app/zephyr/zephyr.uf2",
+        "artifact_final_name": "slimbox-bt-feather_nrf52840.uf2",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/hid_dev.overlay",
+                "boards/feather_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "flatbox-rev7-nrf52840",
+        "board": "xiao_ble",
+        "artifact_built_name": "app/zephyr/zephyr.uf2",
+        "artifact_final_name": "flatbox-rev7-nrf52840.uf2",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/flatbox_rev7.conf",
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/xiao_ble_i2c_pullup.overlay",
+                "boards/flatbox_rev7.overlay",
+                "boards/hid_dev.overlay"
+            ]
+        }
+    },
+    {
+        "name": "flatbox-rev7-nrf54l15",
+        "board": "xiao_nrf54l15/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "flatbox-rev7-nrf54l15.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/flatbox_rev7.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/xiao_nrf54l15_i2c_pullup.overlay",
+                "boards/flatbox_rev7.overlay"
+            ]
+        }
+    },
+    {
+        "name": "seeed_xiao_nrf52840",
+        "board": "xiao_ble",
+        "artifact_built_name": "app/zephyr/zephyr.uf2",
+        "artifact_final_name": "slimbox-bt-xiao_nrf52840.uf2",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/hid_dev.overlay",
+                "boards/xiao_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "seeed_xiao_nrf54l15",
+        "board": "xiao_nrf54l15/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-xiao_nrf54l15.hex",
+        "extra_params": {
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/xiao_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "seeed_xiao_nrf54l15-otadfu",
+        "disabled": true,
+        "board": "xiao_nrf54l15/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-xiao_nrf54l15-otadfu.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/ota_dfu.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/xiao_mapping.overlay"
+            ],
+            "SB_CONF_FILE": [
+                "sysbuild_boards/enable_mcuboot.conf"
+            ],
+            "mcuboot_EXTRA_DTC_OVERLAY_FILE": [
+                "${PWD}/app/sysbuild_boards/mcuboot_nrf54l.overlay"
+            ]
+        }
+    },
+    {
+        "name": "nice_nano",
+        "board": "nice_nano",
+        "artifact_built_name": "app/zephyr/zephyr.uf2",
+        "artifact_final_name": "slimbox-bt-nice_nano.uf2",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/hid_dev.overlay",
+                "boards/pro_micro_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "holyiot_25008",
+        "board": "holyiot_25008/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-holyiot_25008.hex",
+        "extra_params": {
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/holyiot_25008_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "holyiot_25008-otadfu",
+        "disabled": true,
+        "board": "holyiot_25008/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-holyiot_25008-otadfu.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/ota_dfu.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/holyiot_25008_mapping.overlay"
+            ],
+            "SB_CONF_FILE": [
+                "sysbuild_boards/enable_mcuboot.conf"
+            ],
+            "mcuboot_EXTRA_DTC_OVERLAY_FILE": [
+                "${PWD}/app/sysbuild_boards/mcuboot_nrf54l.overlay"
+            ]
+        }
+    },
+    {
+        "name": "holyiot_25055",
+        "board": "holyiot_25055/nrf54l05/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-holyiot_25055.hex",
+        "extra_params": {
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/holyiot_25055_mapping.overlay"
+            ]
+        }
+    },
+    {
+        "name": "holyiot_25055-otadfu",
+        "disabled": true,
+        "board": "holyiot_25055/nrf54l05/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-holyiot_25055-otadfu.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/ota_dfu.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/holyiot_25055_mapping.overlay"
+            ],
+            "SB_CONF_FILE": [
+                "sysbuild_boards/enable_mcuboot.conf"
+            ],
+            "mcuboot_EXTRA_DTC_OVERLAY_FILE": [
+                "${PWD}/app/sysbuild_boards/mcuboot_nrf54l.overlay"
+            ]
+        }
+    },
+    {
+        "name": "nrf52dk",
+        "board": "nrf52dk/nrf52832",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "slimbox-bt-nrf52dk.hex",
+        "extra_params": {
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/nrf52dk_mapping.overlay"
+            ]
+        }
+    }
+]
