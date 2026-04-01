@@ -670,7 +670,22 @@ static struct hid_device_ops ops = {
     .input_report_done = input_report_done,
 };
 
-bool initialize_usb() {
+static void usbd_msg_cb(struct usbd_context* const ctx, const struct usbd_msg* msg) {
+    switch (msg->type) {
+        case USBD_MSG_VBUS_READY:
+            LOG_INF("USBD_MSG_VBUS_READY");
+            CHK(usbd_enable(ctx));
+            break;
+        case USBD_MSG_VBUS_REMOVED:
+            LOG_INF("USBD_MSG_VBUS_REMOVED");
+            CHK(usbd_disable(ctx));
+            break;
+        default:
+            break;
+    }
+}
+
+static bool initialize_usb() {
     if (!device_is_ready(hid_dev)) {
         LOG_ERR("hid_dev not ready");
         return false;
@@ -724,7 +739,12 @@ bool initialize_usb() {
         return false;
     }
 
-    if (!CHK(usbd_enable(&context))) {
+    // This can fail on certain platforms (DWC2) if VBUS is not present on startup.
+    // But we have to try because we might not get the VBUS ready event if it is present on startup.
+    // In any case calling it again from usbd_msg_cb() should be safe.
+    CHK(usbd_enable(&context));
+
+    if (!CHK(usbd_msg_register_cb(&context, usbd_msg_cb))) {
         return false;
     }
 
