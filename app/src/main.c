@@ -345,6 +345,13 @@ static void connected(struct bt_conn* conn, uint8_t err) {
 
     LOG_INF("%s", addr);
 
+    struct bt_conn_info info;
+    if (CHK(bt_conn_get_info(conn, &info))) {
+        if (info.type == BT_CONN_TYPE_LE) {
+            LOG_INF("interval_us=%u, latency=%u, timeout=%u", info.le.interval_us, info.le.latency, info.le.timeout);
+        }
+    }
+
     CHK(bt_hids_connected(&hids_obj, conn));
 
     set_led_mode(LED_CONNECTED);
@@ -380,9 +387,14 @@ static void security_changed(struct bt_conn* conn, bt_security_t level, enum bt_
     }
 }
 
+static void le_param_updated(struct bt_conn* conn, uint16_t interval, uint16_t latency, uint16_t timeout) {
+    LOG_INF("interval=%u, latency=%u, timeout=%u", interval, latency, timeout);
+}
+
 BT_CONN_CB_DEFINE(conn_callbacks) = {
     .connected = connected,
     .disconnected = disconnected,
+    .le_param_updated = le_param_updated,
     .security_changed = security_changed,
 };
 
