@@ -32,6 +32,22 @@
         }
     },
     {
+        "name": "flatbox-rev7.1-nrf52840",
+        "board": "xiao_ble",
+        "artifact_built_name": "app/zephyr/zephyr.uf2",
+        "artifact_final_name": "flatbox-rev7.1-nrf52840.uf2",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/flatbox_rev7.1.conf",
+                "boards/usb.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/flatbox_rev7.1.overlay",
+                "boards/hid_dev.overlay"
+            ]
+        }
+    },
+    {
         "name": "flatbox-rev7-nrf54l15",
         "board": "xiao_nrf54l15/nrf54l15/cpuapp",
         "artifact_built_name": "merged.hex",
@@ -43,6 +59,20 @@
             "EXTRA_DTC_OVERLAY_FILE": [
                 "boards/xiao_nrf54l15_i2c_pullup.overlay",
                 "boards/flatbox_rev7.overlay"
+            ]
+        }
+    },
+    {
+        "name": "flatbox-rev7.1-nrf54l15",
+        "board": "xiao_nrf54l15/nrf54l15/cpuapp",
+        "artifact_built_name": "merged.hex",
+        "artifact_final_name": "flatbox-rev7.1-nrf54l15.hex",
+        "extra_params": {
+            "EXTRA_CONF_FILE": [
+                "boards/flatbox_rev7.1.conf"
+            ],
+            "EXTRA_DTC_OVERLAY_FILE": [
+                "boards/flatbox_rev7.1.overlay"
             ]
         }
     },
