@@ -234,6 +234,7 @@ static void sleep_work_fn(struct k_work* work) {
     gpio_pin_set_dt(&expander_reset, 1);
 #endif
     set_status_led(false);
+    CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_LEVEL_ACTIVE));
     LOG_INF("Going to sleep...");
     LOG_PANIC();
     sys_poweroff();
@@ -758,7 +759,6 @@ static void configure_buttons(void) {
     // sys_button is probably one of the gamepad buttons we just configured,
     // but configure it anyway in case it's not.
     CHK(gpio_pin_configure_dt(&sys_button, GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW));
-    CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_EDGE_BOTH));
 }
 
 #define BUTTON_GET(name)                                                                                        \

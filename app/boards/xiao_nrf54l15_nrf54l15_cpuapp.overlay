@@ -19,14 +19,6 @@
     };
 };
 
-&gpio0 {
-    sense-edge-mask = < 0xffffffff >;
-};
-
-&gpio1 {
-    sense-edge-mask = < 0xffffffff >;
-};
-
 &uart21 {
     current-speed = <921600>;
 };
