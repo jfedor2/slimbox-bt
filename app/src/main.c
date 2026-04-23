@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <soc.h>
 #include <stddef.h>
 #include <string.h>
@@ -56,7 +57,14 @@ static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_butt
 #define SYS_BUTTON_LONG_PRESS_MS 3000
 #define SYS_BUTTON_VERY_LONG_PRESS_MS 10000
 
+#define SUPERVISION_TIMEOUT_10MS 100
 #define RADIO_NOTIFICATION_DISTANCE_US DT_PROP_OR(DT_PATH(zephyr_user), radio_notification_distance_us, 500)
+
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+#define CONNECTION_INTERVAL_MIN_US DT_PROP_OR(DT_PATH(zephyr_user), connection_interval_min_us, 1000)
+#define IDLE_TIMEOUT K_SECONDS(60)
+#define IDLE_SUBRATE_FACTOR 10
+#endif
 
 enum LedMode {
     LED_OFF = 0,
@@ -193,6 +201,55 @@ static int active_gpio_ports = 0;
 static const struct device* gpregret_dev = DEVICE_DT_GET(DT_NODELABEL(gpregret1));
 #endif
 
+enum ConnState {
+    STATE_UNKNOWN = 0,
+    STATE_NOK = 1,
+    STATE_OK = 2,
+};
+
+enum ConnStep {
+    STEP_INITIAL = 0,
+    STEP_LEGACY_PARAMS,
+    STEP_LEGACY_ACCOMPLISHED,
+    STEP_LEGACY_GIVEN_UP,
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+    STEP_REMOTE_SUPPORTS_SCI,
+    STEP_PHY,
+    STEP_FRAME_SPACE,
+    STEP_CONN_RATE,
+    STEP_SCI_ACCOMPLISHED,
+    STEP_SCI_GIVEN_UP,
+    STEP_SUBRATE_FACTOR,
+#endif
+};
+
+struct conn_state_t {
+    enum ConnStep step;
+    int16_t retries_left;
+    enum ConnState legacy_params;
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+    enum ConnState remote_supports_sci;
+    enum ConnState phy;
+    enum ConnState frame_space;
+    enum ConnState conn_rate;
+    enum ConnState subrate_factor;
+    uint32_t requested_interval_us;
+    uint32_t interval_us;
+    uint16_t latency;
+    uint16_t desired_subrate_factor;
+    bool idle;
+#endif
+};
+
+struct conn_state_t conn_state;
+
+static inline void reset_conn_state() {
+    conn_state = (struct conn_state_t){ 0 };
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+    conn_state.desired_subrate_factor = 1;
+#endif
+}
+
 BT_HIDS_DEF(hids_obj, REPORT_LEN);
 
 static K_SEM_DEFINE(bt_event_sem, 0, 1);
@@ -217,6 +274,7 @@ static const struct bt_data ad[] = {
 };
 
 static struct bt_conn* active_conn = NULL;
+static struct k_spinlock conn_lock;
 static bool try_directed;
 
 static int prev_sys_button_state = 0;
@@ -224,6 +282,19 @@ static int64_t sys_button_pressed_at;
 static bool sys_button_very_long_press_handled = false;
 
 static bool usb_ready = false;
+
+static inline struct bt_conn* get_active_conn() {
+    k_spinlock_key_t key = k_spin_lock(&conn_lock);
+    struct bt_conn* conn = active_conn ? bt_conn_ref(active_conn) : NULL;
+    k_spin_unlock(&conn_lock, key);
+    return conn;
+}
+
+static inline void release_conn(struct bt_conn* conn) {
+    if (conn != NULL) {
+        bt_conn_unref(conn);
+    }
+}
 
 static void sleep_work_fn(struct k_work* work) {
     if (usb_ready) {
@@ -316,17 +387,45 @@ static void advertising_restart(void) {
 
 static void clear_bonds_work_fn(struct k_work* work) {
     LOG_INF("");
+    struct bt_conn* conn = get_active_conn();
     bt_unpair(BT_ID_DEFAULT, BT_ADDR_LE_ANY);
-    if (active_conn != NULL) {
+    if (conn != NULL) {
         LOG_INF("Disconnecting...");
-        CHK(bt_conn_disconnect(active_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
+        CHK(bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
     } else {
         LOG_INF("(not connected)");
         CHK(bt_le_adv_stop());
         advertising_start();
     }
+    release_conn(conn);
 }
 static K_WORK_DEFINE(clear_bonds_work, clear_bonds_work_fn);
+
+static void conn_state_work_fn(struct k_work* work);
+static K_WORK_DELAYABLE_DEFINE(conn_state_work, conn_state_work_fn);
+
+static inline void conn_state_work_if(enum ConnStep step) {
+    if (conn_state.step == step) {
+        k_work_reschedule(&conn_state_work, K_NO_WAIT);
+    }
+}
+
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+
+static void idle_work_fn(struct k_work* work) {
+    LOG_INF("");
+    conn_state.idle = true;
+    conn_state_work_if(STEP_SCI_ACCOMPLISHED);
+}
+static K_WORK_DELAYABLE_DEFINE(idle_work, idle_work_fn);
+
+static inline void leave_idle(struct bt_conn* conn) {
+    LOG_INF("");
+    conn_state.idle = false;
+    conn_state_work_if(STEP_SCI_ACCOMPLISHED);
+}
+
+#endif
 
 static void connected(struct bt_conn* conn, uint8_t err) {
     char addr[BT_ADDR_LE_STR_LEN];
@@ -343,7 +442,11 @@ static void connected(struct bt_conn* conn, uint8_t err) {
         return;
     }
 
-    active_conn = conn;
+    k_spinlock_key_t key = k_spin_lock(&conn_lock);
+    active_conn = bt_conn_ref(conn);
+    k_spin_unlock(&conn_lock, key);
+
+    reset_conn_state();
 
     LOG_INF("%s", addr);
 
@@ -351,6 +454,9 @@ static void connected(struct bt_conn* conn, uint8_t err) {
     if (CHK(bt_conn_get_info(conn, &info))) {
         if (info.type == BT_CONN_TYPE_LE) {
             LOG_INF("interval_us=%u, latency=%u, timeout=%u", info.le.interval_us, info.le.latency, info.le.timeout);
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+            conn_state.interval_us = info.le.interval_us;
+#endif
         }
     }
 
@@ -358,6 +464,10 @@ static void connected(struct bt_conn* conn, uint8_t err) {
 
     set_led_mode(LED_CONNECTED);
     k_work_reschedule(&sleep_work, CONNECTED_SLEEP_TIMEOUT);
+    k_work_reschedule(&conn_state_work, K_MSEC(500));
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+    k_work_reschedule(&idle_work, IDLE_TIMEOUT);
+#endif
 }
 
 static void disconnected(struct bt_conn* conn, uint8_t reason) {
@@ -367,9 +477,22 @@ static void disconnected(struct bt_conn* conn, uint8_t reason) {
 
     LOG_INF("%s (reason=%u)", addr, reason);
 
+    struct bt_conn* conn_to_unref = NULL;
+
+    k_spinlock_key_t key = k_spin_lock(&conn_lock);
     if (conn == active_conn) {
-        CHK(bt_hids_disconnected(&hids_obj, conn));
+        conn_to_unref = active_conn;
         active_conn = NULL;
+    }
+    k_spin_unlock(&conn_lock, key);
+
+    if (conn_to_unref != NULL) {
+        k_work_cancel_delayable(&conn_state_work);
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+        k_work_cancel_delayable(&idle_work);
+#endif
+        CHK(bt_hids_disconnected(&hids_obj, conn_to_unref));
+        bt_conn_unref(conn_to_unref);
     } else {
         LOG_ERR("Disconnected from a different connection than the active one?");
     }
@@ -389,14 +512,317 @@ static void security_changed(struct bt_conn* conn, bt_security_t level, enum bt_
     }
 }
 
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+
+static void conn_rate_request(struct bt_conn* conn) {
+    LOG_INF("");
+
+    static uint16_t our_min_interval_us = 0;
+
+    CHK(bt_conn_le_read_min_conn_interval(&our_min_interval_us));
+
+    LOG_INF("min interval supported=%d us, configured=%d us", our_min_interval_us, CONNECTION_INTERVAL_MIN_US);
+
+    if (CONNECTION_INTERVAL_MIN_US > our_min_interval_us) {
+        our_min_interval_us = CONNECTION_INTERVAL_MIN_US;
+    }
+
+    conn_state.requested_interval_us = our_min_interval_us;
+
+    const struct bt_conn_le_conn_rate_param params = {
+        .interval_min_125us = our_min_interval_us / 125,
+        .interval_max_125us = 7500 / 125,
+        .subrate_min = 1,
+        .subrate_max = 1,
+        .max_latency = 0,
+        .continuation_number = 0,
+        .supervision_timeout_10ms = SUPERVISION_TIMEOUT_10MS,
+        .min_ce_len_125us = BT_HCI_LE_SCI_CE_LEN_MIN_125US,
+        .max_ce_len_125us = BT_HCI_LE_SCI_CE_LEN_MAX_125US,
+    };
+
+    CHK(bt_conn_le_conn_rate_request(conn, &params));
+}
+
+static void update_to_2m_phy(struct bt_conn* conn) {
+    LOG_INF("");
+    struct bt_conn_le_phy_param phy;
+
+    phy.options = BT_CONN_LE_PHY_OPT_NONE;
+    phy.pref_rx_phy = BT_GAP_LE_PHY_2M;
+    phy.pref_tx_phy = BT_GAP_LE_PHY_2M;
+
+    CHK(bt_conn_le_phy_update(conn, &phy));
+}
+
+static void select_lowest_frame_space(struct bt_conn* conn) {
+    LOG_INF("");
+    const struct bt_conn_le_frame_space_update_param params = {
+        .phys = BT_HCI_LE_FRAME_SPACE_UPDATE_PHY_2M_MASK,
+        .spacing_types = BT_CONN_LE_FRAME_SPACE_TYPES_MASK_ACL_IFS,
+        .frame_space_min = 0,
+        .frame_space_max = 150,
+    };
+
+    CHK(bt_conn_le_frame_space_update(conn, &params));
+}
+
+static void subrate_factor_request(struct bt_conn* conn) {
+    LOG_INF("");
+
+    struct bt_conn_le_subrate_param params = {
+        .subrate_min = conn_state.desired_subrate_factor,
+        .subrate_max = conn_state.desired_subrate_factor,
+        .max_latency = 0,
+        .continuation_number = 0,
+        .supervision_timeout = SUPERVISION_TIMEOUT_10MS,
+    };
+
+    CHK(bt_conn_le_subrate_request(conn, &params));
+}
+
+static void le_phy_updated(struct bt_conn* conn, struct bt_conn_le_phy_info* param) {
+    LOG_INF("TX PHY %d, RX PHY %d", param->tx_phy, param->rx_phy);
+    if ((param->tx_phy == BT_GAP_LE_PHY_2M) && (param->rx_phy == BT_GAP_LE_PHY_2M)) {
+        conn_state.phy = STATE_OK;
+        conn_state_work_if(STEP_PHY);
+    } else {
+        conn_state.phy = STATE_NOK;
+    }
+}
+
+static void frame_space_updated(struct bt_conn* conn, const struct bt_conn_le_frame_space_updated* params) {
+    if (params->status == BT_HCI_ERR_SUCCESS) {
+        LOG_INF("%u us, PHYs: 0x%02x, spacing types: 0x%04x",
+            params->frame_space,
+            params->phys,
+            params->spacing_types);
+        // let's just assume what we got is good
+        conn_state.frame_space = STATE_OK;
+        conn_state_work_if(STEP_FRAME_SPACE);
+    } else {
+        LOG_WRN("failed (HCI status 0x%02x %s)", params->status, bt_hci_err_to_str(params->status));
+    }
+}
+
+static void subrate_changed(struct bt_conn* conn, const struct bt_conn_le_subrate_changed* params) {
+    if (params->status == BT_HCI_ERR_SUCCESS) {
+        LOG_INF("factor %d, continuation_number %d, peripheral_latency %d, supervision_timeout %d", params->factor, params->continuation_number, params->peripheral_latency, params->supervision_timeout);
+        if (params->factor == conn_state.desired_subrate_factor) {
+            conn_state.subrate_factor = STATE_OK;
+            conn_state_work_if(STEP_SUBRATE_FACTOR);
+        }
+    } else {
+        LOG_WRN("failed (HCI status 0x%02x %s)", params->status, bt_hci_err_to_str(params->status));
+    }
+}
+
+static void conn_rate_changed(struct bt_conn* conn, uint8_t status, const struct bt_conn_le_conn_rate_changed* params) {
+    if (status == BT_HCI_ERR_SUCCESS) {
+        LOG_INF(
+            "interval %u us, "
+            "subrate factor %d, "
+            "peripheral latency %d, "
+            "continuation number %d, "
+            "supervision timeout %d ms",
+            params->interval_us, params->subrate_factor, params->peripheral_latency,
+            params->continuation_number, params->supervision_timeout_10ms * 10);
+        conn_state.interval_us = params->interval_us;
+        if (params->interval_us == conn_state.requested_interval_us) {
+            conn_state.conn_rate = STATE_OK;
+            conn_state_work_if(STEP_CONN_RATE);
+        }
+    } else {
+        LOG_WRN("failed (HCI status 0x%02x %s)", status, bt_hci_err_to_str(status));
+    }
+}
+
+static void read_all_remote_feat_complete(struct bt_conn* conn, const struct bt_conn_le_read_all_remote_feat_complete* params) {
+    LOG_INF("SCI %d SCI_host_supp %d", !!BT_FEAT_LE_SHORTER_CONN_INTERVALS(params->features), !!BT_FEAT_LE_SHORTER_CONN_INTERVALS_HOST_SUPP(params->features));
+
+    conn_state.remote_supports_sci =
+        BT_FEAT_LE_SHORTER_CONN_INTERVALS(params->features) &&
+                BT_FEAT_LE_SHORTER_CONN_INTERVALS_HOST_SUPP(params->features)
+            ? STATE_OK
+            : STATE_NOK;
+
+    conn_state_work_if(STEP_REMOTE_SUPPORTS_SCI);
+}
+
+#endif
+
+static void request_legacy_params(struct bt_conn* conn) {
+    LOG_INF("");
+
+    struct bt_le_conn_param conn_param = {
+        .interval_min = 6,
+        .interval_max = 6,
+        .latency = 0,
+        .timeout = SUPERVISION_TIMEOUT_10MS,
+    };
+
+    CHK(bt_conn_le_param_update(conn, &conn_param));
+}
+
+static k_timeout_t conn_step_next_think;
+
+static inline void next_step(enum ConnStep step, k_timeout_t delay, int16_t retries_left) {
+    conn_step_next_think = delay;
+    conn_state.retries_left = retries_left;
+    conn_state.step = step;
+}
+
+static inline bool should_retry_step() {
+    if (conn_state.retries_left > 0) {
+        conn_state.retries_left--;
+        return true;
+    }
+    return false;
+}
+
+static void conn_state_work_fn(struct k_work* work) {
+    struct bt_conn* conn = get_active_conn();
+    if (conn == NULL) {
+        return;
+    }
+
+    conn_step_next_think = K_NO_WAIT;
+
+    while (K_TIMEOUT_EQ(conn_step_next_think, K_NO_WAIT)) {
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+        LOG_INF("conn_step=%d retries_left=%d RS=%d PH=%d FS=%d CR=%d SF=%d LP=%d", conn_state.step, conn_state.retries_left, conn_state.remote_supports_sci, conn_state.phy, conn_state.frame_space, conn_state.conn_rate, conn_state.subrate_factor, conn_state.legacy_params);
+#else
+        LOG_INF("conn_step=%d retries_left=%d LP=%d", conn_state.step, conn_state.retries_left, conn_state.legacy_params);
+#endif
+        switch (conn_state.step) {
+            case STEP_INITIAL:
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+                next_step(STEP_REMOTE_SUPPORTS_SCI, K_NO_WAIT, 3);
+#else
+                next_step(STEP_LEGACY_PARAMS, K_NO_WAIT, 3);
+#endif
+                break;
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+            case STEP_REMOTE_SUPPORTS_SCI:
+                if (conn_state.remote_supports_sci == STATE_OK) {
+                    next_step(STEP_PHY, K_NO_WAIT, 3);
+                } else if (conn_state.remote_supports_sci == STATE_NOK) {
+                    next_step(STEP_LEGACY_PARAMS, K_NO_WAIT, 3);
+                } else if (should_retry_step()) {
+                    CHK(bt_conn_le_read_all_remote_features(conn, 2));
+                    conn_step_next_think = K_MSEC(2000);
+                } else {
+                    next_step(STEP_LEGACY_PARAMS, K_NO_WAIT, 3);
+                }
+                break;
+            case STEP_PHY:
+                if (conn_state.phy == STATE_OK) {
+                    next_step(STEP_FRAME_SPACE, K_NO_WAIT, 3);
+                } else if (should_retry_step()) {
+                    update_to_2m_phy(conn);
+                    conn_step_next_think = K_MSEC(2000);
+                } else {
+                    next_step(STEP_SCI_GIVEN_UP, K_NO_WAIT, 0);
+                }
+                break;
+            case STEP_FRAME_SPACE:
+                if (conn_state.frame_space == STATE_OK) {
+                    next_step(STEP_CONN_RATE, K_NO_WAIT, 3);
+                } else if (should_retry_step()) {
+                    select_lowest_frame_space(conn);
+                    conn_step_next_think = K_MSEC(2000);
+                } else {
+                    next_step(STEP_SCI_GIVEN_UP, K_NO_WAIT, 0);
+                }
+                break;
+            case STEP_CONN_RATE:
+                if (conn_state.conn_rate == STATE_OK) {
+                    next_step(STEP_SCI_ACCOMPLISHED, K_NO_WAIT, 0);
+                } else if (should_retry_step()) {
+                    conn_rate_request(conn);
+                    conn_step_next_think = K_MSEC(2000);
+                } else {
+                    next_step(STEP_SCI_GIVEN_UP, K_NO_WAIT, 0);
+                }
+                break;
+            case STEP_SCI_ACCOMPLISHED:
+                if ((conn_state.idle && (conn_state.desired_subrate_factor != IDLE_SUBRATE_FACTOR)) ||
+                    (!conn_state.idle && (conn_state.desired_subrate_factor != 1))) {
+                    conn_state.desired_subrate_factor = conn_state.idle ? IDLE_SUBRATE_FACTOR : 1;
+                    conn_state.subrate_factor = STATE_UNKNOWN;
+                    next_step(STEP_SUBRATE_FACTOR, K_NO_WAIT, 3);
+                } else {
+                    LOG_INF("SCI params accomplished");
+                    conn_step_next_think = K_FOREVER;
+                }
+                break;
+            case STEP_SCI_GIVEN_UP:
+                // we didn't get what we wanted but perhaps it's still no worse than legacy
+                if ((conn_state.interval_us <= 7500) && (conn_state.latency == 0)) {
+                    LOG_INF("%" PRIu32 "us, eh, good enough", conn_state.interval_us);
+                    next_step(STEP_SCI_ACCOMPLISHED, K_NO_WAIT, 0);
+                } else {
+                    next_step(STEP_LEGACY_PARAMS, K_NO_WAIT, 3);
+                }
+                break;
+            case STEP_SUBRATE_FACTOR:
+                if (conn_state.subrate_factor == STATE_OK) {
+                    next_step(STEP_SCI_ACCOMPLISHED, K_NO_WAIT, 0);
+                } else if (should_retry_step()) {
+                    subrate_factor_request(conn);
+                    conn_step_next_think = K_MSEC(500);
+                } else {
+                    next_step(STEP_SCI_ACCOMPLISHED, K_NO_WAIT, 0);
+                }
+                break;
+#endif
+            case STEP_LEGACY_PARAMS:
+                if (conn_state.legacy_params == STATE_OK) {
+                    next_step(STEP_LEGACY_ACCOMPLISHED, K_NO_WAIT, 0);
+                } else if (should_retry_step()) {
+                    request_legacy_params(conn);
+                    conn_step_next_think = K_MSEC(5000);
+                } else {
+                    next_step(STEP_LEGACY_GIVEN_UP, K_NO_WAIT, 0);
+                }
+                break;
+            case STEP_LEGACY_ACCOMPLISHED:
+                LOG_INF("Legacy params accomplished");
+                conn_step_next_think = K_FOREVER;
+                break;
+            case STEP_LEGACY_GIVEN_UP:
+                LOG_INF("Failed to accomplish legacy params");
+                conn_step_next_think = K_FOREVER;
+                break;
+        }
+    }
+
+    if (!K_TIMEOUT_EQ(conn_step_next_think, K_FOREVER)) {
+        k_work_reschedule(&conn_state_work, conn_step_next_think);
+    }
+
+    release_conn(conn);
+}
+
 static void le_param_updated(struct bt_conn* conn, uint16_t interval, uint16_t latency, uint16_t timeout) {
     LOG_INF("interval=%u, latency=%u, timeout=%u", interval, latency, timeout);
+    if ((interval == 6) && (latency == 0)) {
+        conn_state.legacy_params = STATE_OK;
+        conn_state_work_if(STEP_LEGACY_PARAMS);
+    }
 }
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
     .connected = connected,
     .disconnected = disconnected,
     .le_param_updated = le_param_updated,
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+    .le_phy_updated = le_phy_updated,
+    .subrate_changed = subrate_changed,
+    .conn_rate_changed = conn_rate_changed,
+    .frame_space_updated = frame_space_updated,
+    .read_all_remote_feat_complete = read_all_remote_feat_complete,
+#endif
     .security_changed = security_changed,
 };
 
@@ -623,12 +1049,13 @@ UDC_STATIC_BUF_DEFINE(usb_report, sizeof(report) + 1);
 
 static void iface_ready(const struct device* dev, const bool ready) {
     LOG_INF("%d", ready);
+    struct bt_conn* conn = get_active_conn();
     usb_ready = ready;
     if (usb_ready) {
         set_led_mode(LED_OFF);
-        if (active_conn != NULL) {
+        if (conn != NULL) {
             LOG_INF("Disconnecting...");
-            CHK(bt_conn_disconnect(active_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
+            CHK(bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
         } else {
             LOG_INF("(not connected)");
             CHK(bt_le_adv_stop());
@@ -636,6 +1063,8 @@ static void iface_ready(const struct device* dev, const bool ready) {
     } else {
         advertising_start();
     }
+
+    release_conn(conn);
 }
 
 static int get_report(const struct device* dev,
@@ -896,13 +1325,23 @@ int main() {
                 }
 #endif
             } else {
-                if (active_conn != NULL) {
+                struct bt_conn* conn = get_active_conn();
+                if (conn != NULL) {
                     LOG_DBG("Sending report...");
-                    if (CHK(bt_hids_inp_rep_send(&hids_obj, active_conn, REPORT_ID_IDX, (uint8_t*) &report, REPORT_LEN, report_sent_cb))) {
+                    if (CHK(bt_hids_inp_rep_send(&hids_obj, conn, REPORT_ID_IDX, (uint8_t*) &report, REPORT_LEN, report_sent_cb))) {
                         memcpy(&prev_report, &report, sizeof(report));
                     }
+#ifdef CONFIG_BT_SHORTER_CONNECTION_INTERVALS
+                    // struct k_work_sync work_sync;
+                    // k_work_cancel_delayable_sync(&idle_work, &work_sync);
+                    if (conn_state.idle) {
+                        leave_idle(conn);
+                    }
+                    k_work_reschedule(&idle_work, IDLE_TIMEOUT);
+#endif
                     k_work_reschedule(&sleep_work, CONNECTED_SLEEP_TIMEOUT);
                 }
+                release_conn(conn);
             }
         }
     }
