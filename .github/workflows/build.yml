@@ -4,7 +4,8 @@ on:
     paths:
       - 'app/**'
       - 'west.yml'
-      - 'build.sh'
+      - 'builds.json'
+      - 'build.py'
   workflow_call:
 defaults:
   run:
