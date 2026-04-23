@@ -1,4 +1,8 @@
 / {
+    zephyr,user {
+        radio-notification-distance-us = <900>;
+    };
+
     leds {
         expanderreset: expander_reset {
             gpios = <&xiao_d 8 GPIO_ACTIVE_LOW>;

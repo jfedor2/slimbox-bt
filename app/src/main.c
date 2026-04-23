@@ -31,6 +31,7 @@
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/uuid.h>
 
+#include <bluetooth/radio_notification_cb.h>
 #include <bluetooth/services/hids.h>
 #include <zephyr/bluetooth/services/bas.h>
 #include <zephyr/bluetooth/services/dis.h>
@@ -49,13 +50,13 @@ static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_butt
 #define REPORT_ID_IDX 0
 #define REPORT_LEN 10
 
-#define HIDS_QUEUE_SIZE 10
-
 #define DISCONNECTED_SLEEP_TIMEOUT K_SECONDS(60)
 #define CONNECTED_SLEEP_TIMEOUT K_SECONDS(600)
 
 #define SYS_BUTTON_LONG_PRESS_MS 3000
 #define SYS_BUTTON_VERY_LONG_PRESS_MS 10000
+
+#define RADIO_NOTIFICATION_DISTANCE_US DT_PROP_OR(DT_PATH(zephyr_user), radio_notification_distance_us, 500)
 
 enum LedMode {
     LED_OFF = 0,
@@ -194,7 +195,7 @@ static const struct device* gpregret_dev = DEVICE_DT_GET(DT_NODELABEL(gpregret1)
 
 BT_HIDS_DEF(hids_obj, REPORT_LEN);
 
-K_MSGQ_DEFINE(hids_queue, REPORT_LEN, HIDS_QUEUE_SIZE, 4);
+static K_SEM_DEFINE(bt_event_sem, 0, 1);
 
 char bt_name[CONFIG_BT_DEVICE_NAME_MAX + 1];
 
@@ -572,19 +573,6 @@ static void report_sent_cb(struct bt_conn* conn, void* user_data) {
     LOG_DBG("");
 }
 
-static void hids_work_fn(struct k_work* work) {
-    uint8_t report[REPORT_LEN];
-
-    while (!k_msgq_get(&hids_queue, report, K_NO_WAIT)) {
-        if (active_conn != NULL) {
-            k_work_reschedule(&sleep_work, CONNECTED_SLEEP_TIMEOUT);
-            LOG_DBG("Sending report...");
-            CHK(bt_hids_inp_rep_send(&hids_obj, active_conn, REPORT_ID_IDX, report, REPORT_LEN, report_sent_cb));
-        }
-    }
-}
-static K_WORK_DEFINE(hids_work, hids_work_fn);
-
 static void reset_to_bootloader() {
 #ifdef CONFIG_BUILD_OUTPUT_UF2
     if (!device_is_ready(gpregret_dev)) {
@@ -846,6 +834,14 @@ static void handle_buttons() {
     report.dpad = dpad_lut[dpad];
 }
 
+static void radio_notification_conn_cb(struct bt_conn* conn) {
+    k_sem_give(&bt_event_sem);
+}
+
+static const struct bt_radio_notification_conn_cb radio_notification_callbacks = {
+    .prepare = radio_notification_conn_cb,
+};
+
 int main() {
     LOG_INF("Slimbox BT");
 
@@ -870,6 +866,8 @@ int main() {
         return 0;
     }
 
+    CHK(bt_radio_notification_conn_cb_register(&radio_notification_callbacks, RADIO_NOTIFICATION_DISTANCE_US));
+
     settings_load();
     set_bt_name();
     configure_leds();
@@ -880,7 +878,7 @@ int main() {
         // this makes logging work, but potentially stops us from achieving max polling rate
         // k_sleep(K_USEC(1));
         if (!usb_ready) {
-            k_sleep(K_MSEC(1));
+            k_sem_take(&bt_event_sem, K_USEC(10000));
         }
         handle_buttons();
 
@@ -898,9 +896,13 @@ int main() {
                 }
 #endif
             } else {
-                k_msgq_put(&hids_queue, &report, K_NO_WAIT);
-                k_work_submit(&hids_work);
-                memcpy(&prev_report, &report, sizeof(report));
+                if (active_conn != NULL) {
+                    LOG_DBG("Sending report...");
+                    if (CHK(bt_hids_inp_rep_send(&hids_obj, active_conn, REPORT_ID_IDX, (uint8_t*) &report, REPORT_LEN, report_sent_cb))) {
+                        memcpy(&prev_report, &report, sizeof(report));
+                    }
+                    k_work_reschedule(&sleep_work, CONNECTED_SLEEP_TIMEOUT);
+                }
             }
         }
     }
