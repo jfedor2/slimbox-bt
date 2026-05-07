@@ -13,3 +13,39 @@
 &uart21 {
     current-speed = <921600>;
 };
+
+&vbat_pwr {
+    status = "disabled";
+};
+
+&rfsw_pwr {
+    status = "disabled";
+};
+
+&rfsw_ctl {
+    status = "disabled";
+};
+
+// This selects the onboard antenna.
+&gpio2 {
+    rfsw_ctl_hog {
+        gpio-hog;
+        gpios = <5 GPIO_ACTIVE_HIGH>;
+        output-low;
+    };
+};
+
+// Only power the RF switch when needed.
+/ {
+    rf_switch: fem {
+        compatible = "generic-fem-two-ctrl-pins";
+        ctx-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+        crx-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+        ctx-settle-time-us = <10>;
+        crx-settle-time-us = <10>;
+    };
+};
+
+&radio {
+    fem = <&rf_switch>;
+};
