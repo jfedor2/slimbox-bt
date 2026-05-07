@@ -1152,16 +1152,11 @@ static bool initialize_usb() {
 
     usbd_self_powered(&context, false);
 
-    if (!CHK(usbd_init(&context))) {
+    if (!CHK(usbd_msg_register_cb(&context, usbd_msg_cb))) {
         return false;
     }
 
-    // This can fail on certain platforms (DWC2) if VBUS is not present on startup.
-    // But we have to try because we might not get the VBUS ready event if it is present on startup.
-    // In any case calling it again from usbd_msg_cb() should be safe.
-    CHK(usbd_enable(&context));
-
-    if (!CHK(usbd_msg_register_cb(&context, usbd_msg_cb))) {
+    if (!CHK(usbd_init(&context))) {
         return false;
     }
 
