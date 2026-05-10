@@ -39,10 +39,6 @@
 
 LOG_MODULE_REGISTER(gamepad, LOG_LEVEL_DBG);
 
-#if DT_NODE_HAS_STATUS(DT_ALIAS(expanderreset), okay)
-static const struct gpio_dt_spec expander_reset = GPIO_DT_SPEC_GET(DT_ALIAS(expanderreset), gpios);
-#endif
-
 static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_button), gpios);
 
 #define CHK(X) ({ int err = X; if (err != 0) { LOG_ERR("%s returned %d (%s:%d)", #X, err, __FILE__, __LINE__); } err == 0; })
@@ -301,10 +297,6 @@ static void sleep_work_fn(struct k_work* work) {
         LOG_INF("USB connected, not sleeping.");
         return;
     }
-#if DT_NODE_HAS_STATUS(DT_ALIAS(expanderreset), okay)
-    // drive expander reset pin low
-    gpio_pin_set_dt(&expander_reset, 1);
-#endif
     set_status_led(false);
     CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_LEVEL_ACTIVE));
     LOG_INF("Going to sleep...");

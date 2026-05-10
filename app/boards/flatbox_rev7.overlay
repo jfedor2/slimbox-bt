@@ -3,13 +3,6 @@
         radio-notification-distance-us = <900>;
     };
 
-    leds {
-        expanderreset: expander_reset {
-            gpios = <&xiao_d 8 GPIO_ACTIVE_LOW>;
-            label = "expander reset";
-        };
-    };
-
     gamepad-buttons {
         compatible = "gpio-keys";
         start { gpios = <&xiao_d 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; label = "D0"; };
@@ -33,7 +26,6 @@
     };
 
     aliases {
-        expanderreset = &expanderreset;
         sys-button = "/gamepad-buttons/start";
     };
 };
