@@ -62,6 +62,8 @@ static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_butt
 #define IDLE_SUBRATE_FACTOR 10
 #endif
 
+static volatile bool keep_going = true;
+
 enum LedMode {
     LED_OFF = 0,
     LED_ON = 1,
@@ -297,11 +299,8 @@ static void sleep_work_fn(struct k_work* work) {
         LOG_INF("USB connected, not sleeping.");
         return;
     }
-    set_status_led(false);
-    CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_LEVEL_ACTIVE));
-    LOG_INF("Going to sleep...");
-    LOG_PANIC();
-    sys_poweroff();
+
+    keep_going = false;
 }
 static K_WORK_DELAYABLE_DEFINE(sleep_work, sleep_work_fn);
 
@@ -489,7 +488,9 @@ static void disconnected(struct bt_conn* conn, uint8_t reason) {
         LOG_ERR("Disconnected from a different connection than the active one?");
     }
 
-    advertising_start();
+    if (keep_going) {
+        advertising_start();
+    }
 }
 
 static void security_changed(struct bt_conn* conn, bt_security_t level, enum bt_security_err err) {
@@ -1290,7 +1291,7 @@ int main() {
     advertising_start();
     configure_buttons();
 
-    while (1) {
+    while (keep_going) {
         // this makes logging work, but potentially stops us from achieving max polling rate
         // k_sleep(K_USEC(1));
         if (!usb_ready) {
@@ -1332,4 +1333,23 @@ int main() {
             }
         }
     }
+
+    struct bt_conn* conn = get_active_conn();
+    if (conn != NULL) {
+        CHK(bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN));
+    } else {
+        CHK(bt_le_adv_stop());
+    }
+    release_conn(conn);
+
+    CHK(bt_disable());
+
+    k_sleep(K_MSEC(100));
+
+    set_status_led(false);
+    CHK(gpio_pin_interrupt_configure_dt(&sys_button, GPIO_INT_LEVEL_ACTIVE));
+
+    LOG_INF("Going to sleep...");
+    LOG_PANIC();
+    sys_poweroff();
 }
