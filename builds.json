@@ -43,7 +43,8 @@
             ],
             "EXTRA_DTC_OVERLAY_FILE": [
                 "boards/flatbox_rev7.1.overlay",
-                "boards/hid_dev.overlay"
+                "boards/hid_dev.overlay",
+                "boards/xiao_ble_spi.overlay"
             ]
         }
     },
