@@ -25,7 +25,7 @@
                 "boards/usb.conf"
             ],
             "EXTRA_DTC_OVERLAY_FILE": [
-                "boards/xiao_ble_i2c_pullup.overlay",
+                "boards/xiao_ble_i2c.overlay",
                 "boards/flatbox_rev7.overlay",
                 "boards/hid_dev.overlay"
             ]

@@ -5,3 +5,9 @@
         };
     };
 };
+
+/ {
+    zephyr,user {
+        keep-awake-devices = <&xiao_i2c>;
+    };
+};

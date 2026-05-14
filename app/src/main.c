@@ -9,6 +9,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
+#include <zephyr/pm/device_runtime.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/hash_function.h>
@@ -42,6 +43,9 @@ LOG_MODULE_REGISTER(gamepad, LOG_LEVEL_DBG);
 static const struct gpio_dt_spec sys_button = GPIO_DT_SPEC_GET(DT_ALIAS(sys_button), gpios);
 
 #define CHK(X) ({ int err = X; if (err != 0) { LOG_ERR("%s returned %d (%s:%d)", #X, err, __FILE__, __LINE__); } err == 0; })
+
+#define PM_DEVICE_RUNTIME_GET(node_id, prop, idx) CHK(pm_device_runtime_get(DEVICE_DT_GET(DT_PHANDLE_BY_IDX(node_id, prop, idx))));
+#define PM_DEVICE_RUNTIME_PUT(node_id, prop, idx) CHK(pm_device_runtime_put(DEVICE_DT_GET(DT_PHANDLE_BY_IDX(node_id, prop, idx))));
 
 #define REPORT_ID 3
 #define REPORT_ID_IDX 0
@@ -1262,6 +1266,10 @@ static const struct bt_radio_notification_conn_cb radio_notification_callbacks =
 int main() {
     LOG_INF("Slimbox BT");
 
+#if DT_NODE_HAS_PROP(DT_PATH(zephyr_user), keep_awake_devices) && defined(CONFIG_PM_DEVICE_RUNTIME)
+    DT_FOREACH_PROP_ELEM(DT_PATH(zephyr_user), keep_awake_devices, PM_DEVICE_RUNTIME_GET)
+#endif
+
     if (!CHK(bt_conn_auth_cb_register(&conn_auth_callbacks))) {
         return 0;
     }
@@ -1343,6 +1351,10 @@ int main() {
     release_conn(conn);
 
     CHK(bt_disable());
+
+#if DT_NODE_HAS_PROP(DT_PATH(zephyr_user), keep_awake_devices) && defined(CONFIG_PM_DEVICE_RUNTIME)
+    DT_FOREACH_PROP_ELEM(DT_PATH(zephyr_user), keep_awake_devices, PM_DEVICE_RUNTIME_PUT)
+#endif
 
     k_sleep(K_MSEC(100));
 
