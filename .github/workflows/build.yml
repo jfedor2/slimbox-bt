@@ -19,12 +19,12 @@ jobs:
           df -h
           sudo rm -rf "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /usr/share/dotnet || true
           df -h
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: |
           ./build.py builds.json > build.sh
           chmod +x build.sh
           docker run -v $PWD:/workspace/project -w /workspace/project ghcr.io/zephyrproject-rtos/ci:v0.28.6 ./build.sh vatican-cameos
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           path: artifacts/*
